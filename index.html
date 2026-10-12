@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#14110e" />
+    <title>Mayhem Arena</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Pass-and-play card battle</p>
+          <h1>Mayhem Arena</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="button ghost" id="account-button" type="button">Create account / Sign in</button>
+          <button class="button ghost" id="rules-button" type="button">How to play</button>
+          <button class="button" id="restart-button" type="button">New battle</button>
+        </div>
+      </header>
+
+      <section class="status-strip" aria-live="polite">
+        <div id="turn-status">Choose a character and game size to begin.</div>
+        <div class="counter" id="action-counter">Cards to play: —</div>
+      </section>
+
+      <section class="setup-card" id="setup-panel">
+        <p class="eyebrow">Start a match</p>
+        <h2>Choose your character</h2>
+        <p>Enter the players’ names, then choose your character. Pass the phone when the turn changes.</p>
+        <div class="name-fields" id="name-fields">
+          <label>Your name<input id="player-name-input" maxlength="18" value="Player 1" autocomplete="nickname" /></label>
+        </div>
+        <div class="mode-picker" role="group" aria-label="Game mode">
+          <button class="mode-choice selected" data-mode="ai" type="button"><strong>Vs AI</strong><small>Play against computer opponents.</small></button>
+          <button class="mode-choice" data-mode="online" type="button"><strong>Online room</strong><small>Create or join a private game code.</small></button>
+        </div>
+        <div class="online-lobby hidden" id="online-lobby">
+          <button class="button primary" id="create-room" type="button">Create private room</button>
+          <div class="join-room"><input id="room-code" maxlength="6" placeholder="Room code" autocomplete="off" /><button class="button" id="join-room" type="button">Join</button></div>
+          <p id="room-status" aria-live="polite">Create a room, then share its code with friends.</p>
+        </div>
+        <div class="character-grid" id="character-grid">
+          <button class="character-choice selected barbarian" data-character="sutha" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Sutha the Skullcrusher</strong><small>Barbarian · aggressive powerhouse</small></span></button>
+          <button class="character-choice wizard" data-character="azzan" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Azzan the Mystic</strong><small>Wizard · spell-slinging tactician</small></span></button>
+          <button class="character-choice paladin" data-character="lia" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Lia the Radiant</strong><small>Paladin · strikes and defense</small></span></button>
+          <button class="character-choice rogue" data-character="oriax" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Oriax the Clever</strong><small>Rogue · tricks and dual-wielding</small></span></button>
+        </div>
+        <section class="drive-artwork" aria-label="Game artwork from the shared card reference photos">
+          <img src="assets/character-roster.jpg" alt="The four available character cards: Oriax, Lia, Sutha, and Azzan" />
+          <img src="IMG_5060.jpg" alt="Shared card reference showing the action icons and mighty powers" />
+          <img src="IMG_5091.jpg" alt="Shared purple card reference for Rogue actions and mighty powers" />
+        </section>
+        <h3 class="setup-subheading">Choose the battle size</h3>
+        <div class="setup-actions">
+          <button class="player-count selected" data-players="2" type="button">2 players</button>
+          <button class="player-count" data-players="3" type="button">3 players</button>
+          <button class="player-count" data-players="4" type="button">4 players</button>
+        </div>
+        <fieldset class="rule-toggles">
+          <legend>House rules</legend>
+          <label class="toggle-row"><span><strong>Three-card opening</strong><small>Every player begins with 3 cards.</small></span><input id="opening-hand-toggle" type="checkbox" role="switch" checked /><i></i></label>
+          <label class="toggle-row"><span><strong>Stack damage on extra moves</strong><small>Damage from a card chain is applied together when the chain ends.</small></span><input id="damage-stack-toggle" type="checkbox" role="switch" checked /><i></i></label>
+          <label class="toggle-row"><span><strong>One-card refill</strong><small>Draw 2 cards when you have 1 card or fewer.</small></span><input id="one-card-refill-toggle" type="checkbox" role="switch" checked /><i></i></label>
+        </fieldset>
+        <button class="button primary" id="start-button" type="button">Begin battle</button>
+      </section>
+
+      <section class="battle hidden" id="battle-panel">
+        <div class="opponents" id="opponents" aria-label="Opponents"></div>
+
+        <section class="table-area">
+          <div class="deck-zone">
+            <div class="deck-stack" aria-hidden="true"><span></span><span></span><span></span></div>
+            <strong>Draw pile</strong>
+            <small id="deck-count">0 cards</small>
+          </div>
+          <div class="battle-message" id="battle-message">The arena is ready.</div>
+          <div class="deck-zone discard-zone">
+            <div class="discard-card" id="discard-preview" aria-hidden="true">?</div>
+            <strong>Discard</strong>
+            <small id="discard-count">0 cards</small>
+          </div>
+        </section>
+
+        <section class="player-board" id="player-board">
+          <div class="player-heading">
+            <div>
+              <p class="eyebrow">Your board</p>
+              <h2 id="player-name">Sutha the Skullcrusher <span id="player-hp" class="hp">10 HP</span></h2>
+            </div>
+            <div class="board-stats"><span id="player-deck">Deck 0</span><span id="player-discard">Discard 0</span></div>
+          </div>
+          <div class="defense-row" id="player-defense" aria-label="Your active defenses"></div>
+          <div class="hand-wrap">
+            <p class="hand-label">Your hand</p>
+            <div class="hand" id="hand" aria-label="Your cards"></div>
+          </div>
+        </section>
+
+        <section class="log-panel" aria-label="Battle log">
+          <div class="log-header"><h2>Battle log</h2><button id="clear-log" type="button">Clear</button></div>
+          <ol id="game-log"></ol>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="rules-dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">Rules reference</p><h2>How to battle</h2></div><button class="icon-button" id="close-rules" aria-label="Close rules">×</button></div>
+      <div class="rules-grid">
+        <article><h3>Goal</h3><p>Be the last player with hit points remaining. Each character begins at 10 HP.</p></article>
+        <article><h3>Turn</h3><p>Draw one card, then play at least one. A lightning symbol adds another required card play. When your hand becomes empty, draw two cards.</p></article>
+        <article><h3>Attack ⚔</h3><p>Choose an opponent. Damage removes active defense first, then their hit points.</p></article>
+        <article><h3>Defense 🛡</h3><p>Defense stays on your board until its shields are gone. It absorbs damage before your HP.</p></article>
+        <article><h3>Other symbols</h3><p>♥ restores HP up to 10. ▣ draws cards immediately. Every symbol on a card resolves: ⚔ + 🛡 deals damage, then stays as a defense. Non-defense cards go to your discard pile.</p></article>
+        <article><h3>Deck refresh</h3><p>When a deck runs out, its discard pile is shuffled back into the draw pile.</p></article>
+      </div>
+      <figure class="reference-photo"><img src="IMG_5122.jpg" alt="How to play reference photo from the supplied Drive folder" /><figcaption>Original reference sheet supplied with the card photos.</figcaption></figure>
+      <p class="fine-print">This is an original fan-made implementation of the supplied game system for local play. It uses original card names and presentation.</p>
+    </dialog>
+
+    <div class="target-popover hidden" id="target-popover" role="dialog" aria-modal="true">
+      <div class="target-card"><p class="eyebrow">Choose a target</p><h2 id="target-title">Attack</h2><div id="target-options" class="target-options"></div><button class="button ghost" id="cancel-target" type="button">Cancel</button></div>
+    </div>
+    <div class="winner-overlay hidden" id="winner-overlay"><div class="winner-card"><p class="eyebrow">Battle complete</p><h2 id="winner-title">Victory!</h2><p id="winner-text"></p><button class="button primary" id="winner-restart" type="button">Play again</button></div></div>
+    <dialog id="account-dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">Player account</p><h2 id="account-title">Create your account</h2></div><button class="icon-button" id="close-account" aria-label="Close account dialog">×</button></div>
+      <form id="account-form" class="account-form">
+        <label>Username<input id="account-username" maxlength="18" autocomplete="username" required /></label>
+        <label>Password<input id="account-password" type="password" minlength="8" autocomplete="new-password" required /></label>
+        <p id="account-error" class="account-error" aria-live="polite"></p>
+        <button class="button primary" id="account-submit" type="submit">Create account</button>
+      </form>
+      <button class="link-button" id="account-mode" type="button">Already have an account? Sign in</button>
+      <button class="link-button hidden" id="logout-button" type="button">Sign out</button>
+    </dialog>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

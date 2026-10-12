@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mayhem-arena
+    runtime: node
+    plan: 0.5c-512mb
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: AUTH_SECRET
+        generateValue: true
+    disk:
+      name: mayhem-player-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
