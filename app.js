@@ -81,7 +81,8 @@ function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? gam
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
 function startGame() {
   lastAction = null; lastHitPlayer = null;
-  const rules = { openingHand: $('opening-hand-toggle').checked, stackDamage: $('damage-stack-toggle').checked, oneCardRefill: $('one-card-refill-toggle').checked };
+  const houseRules = $('house-rules-toggle').checked;
+  const rules = { openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules };
   const chosen = characters.find((character)=>character.id===selectedCharacter);
   const opponents = shuffle(characters.filter((character)=>character.id!==selectedCharacter)).slice(0,selectedPlayers-1);
   const names=[...document.querySelectorAll('#name-fields input')].map((input,index)=>input.value.trim() || `Player ${index+1}`);
