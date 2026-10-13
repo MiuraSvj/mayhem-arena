@@ -38,6 +38,7 @@ let timerInterval = null;
 let lastHitPlayer = null;
 let lastAction = null;
 let seenPlayedCardId = null;
+let seenFirstRollMatchId = null;
 let profileMatchSaved = false;
 let randomCharacter = false;
 let audioContext = null;
@@ -200,6 +201,18 @@ function setRandomCharacter(enabled) {
 function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
+function rollFirstPlayer(players) {
+  const rolls=players.map(()=>0); let contenders=players.map((_,index)=>index); let winnerIndex=-1; let rounds=0;
+  while(winnerIndex<0 && rounds<20) {
+    rounds++;
+    contenders.forEach((index)=>{ rolls[index]=Math.floor(Math.random()*6)+1; });
+    const high=Math.max(...contenders.map((index)=>rolls[index]));
+    const tied=contenders.filter((index)=>rolls[index]===high);
+    if(tied.length===1) winnerIndex=tied[0]; else contenders=tied;
+  }
+  if(winnerIndex<0) winnerIndex=contenders[Math.floor(Math.random()*contenders.length)];
+  return {rolls,winnerIndex,rounds};
+}
 function startGame() {
   lastAction = null; lastHitPlayer = null;
   seenPlayedCardId=null; profileMatchSaved=false; resultFeedbackMatchId=null;
@@ -217,12 +230,15 @@ function startGame() {
   if(gameMode==='online' && roster.some((player)=>!player.character)) { setStatus('Every player must choose a character before the battle can begin.'); return; }
   if(gameMode==='online' && roster.some((player)=>!player.ready)) { setStatus('Every player must press Ready before starting.'); return; }
   clearGameActions(); stopTurnTimer();
-  game = { matchId:crypto.randomUUID(), players:roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name, ...(entry.id ? {socketId:entry.id} : {}) })), current:0, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
+  const players=roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name, ...(entry.id ? {socketId:entry.id} : {}) }));
+  const firstRoll=rollFirstPlayer(players);
+  game = { matchId:crypto.randomUUID(), players, current:firstRoll.winnerIndex, firstRoll, firstRollEndsAt:Date.now()+2200, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
+  seenFirstRollMatchId=null;
   if(gameMode==='online') localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id);
   game.players.forEach((player) => draw(player,rules.openingHand ? 3 : 2));
   updateBattleControls();
   els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML = '';
-  log(`A ${roster.length}-player battle begins. ${game.players[0].name} goes first as ${game.players[0].character.name}.`);
+  log(`The dice decide who goes first. ${game.players[game.current].name} wins the roll and takes the first turn.`);
   log(houseRules ? 'House rules ON: no automatic draw at the start of a turn.' : 'House rules OFF: players draw 1 card at the start of a turn.');
   beginTurn();
   if(gameMode==='online') socket.emit('start-online-game',{code:onlineRoom.code,state:game},(result)=>{ if(!result.ok) { setStatus(result.error); } });
@@ -381,9 +397,10 @@ function chooseReclaim(card) {
   choices.forEach((discarded)=>{ const button=document.createElement('button'); button.type='button'; button.className='reclaim-option'; const name=document.createElement('strong'); name.textContent=discarded.name; const effect=document.createElement('small'); effect.textContent=cardText(discarded) || 'No special effect.'; button.append(name,effect); button.onclick=()=>{ els.target.classList.add('hidden'); playCard(playerAtTurn(),pendingCard,null,discarded); pendingCard=null; }; els.targetOptions.append(button); });
   els.target.classList.remove('hidden');
 }
-function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0 || Date.now()<(game.revealUntil||0)) return; if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
+function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0 || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0)) return; if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
 function runAi() {
   if(game.finished) return; const actor=playerAtTurn(); if(actor.isHuman) return;
+  if(Date.now()<(game.firstRollEndsAt||0)) return scheduleGameAction(runAi,game.firstRollEndsAt-Date.now()+20);
   const enemies=activePlayers().filter((player)=>player!==actor);
   const pick = () => {
     const defense=actor.hand.find((card)=>card.shield && actor.defenses.reduce((sum,d)=>sum+d.shield,0)<2);
@@ -400,8 +417,24 @@ function runAi() {
   if(!game.finished && game.required>0) scheduleGameAction(runAi,1750);
   else if(!game.finished) scheduleGameAction(nextTurn,1750);
 }
+function renderFirstRoll() {
+  const holder=$('dice-roll-display');
+  if(!game?.firstRoll) { holder.classList.add('hidden'); return; }
+  if(seenFirstRollMatchId===game.matchId) return;
+  seenFirstRollMatchId=game.matchId;
+  holder.innerHTML='';
+  const heading=document.createElement('strong'); heading.className='dice-roll-heading'; heading.textContent='🎲 First turn roll'; holder.append(heading);
+  const results=document.createElement('div'); results.className='dice-roll-results';
+  game.players.forEach((player,index)=>{ const result=document.createElement('span'); result.className=`dice-result ${index===game.firstRoll.winnerIndex?'winner':''}`; const die=document.createElement('b'); die.className='die-face'; die.textContent=['⚀','⚁','⚂','⚃','⚄','⚅'][game.firstRoll.rolls[index]-1] || '🎲'; const name=document.createElement('small'); name.textContent=player.name; result.append(die,name); results.append(result); });
+  holder.append(results);
+  const winner=document.createElement('small'); winner.className='dice-roll-winner'; winner.textContent=`${game.players[game.firstRoll.winnerIndex].name} goes first${game.firstRoll.rounds>1?' · tied dice rerolled':''}`; holder.append(winner);
+  holder.classList.remove('hidden'); holder.classList.add('rolling');
+  scheduleGameAction(()=>holder.classList.remove('rolling'),1800);
+  scheduleGameAction(()=>{ if(game?.matchId===seenFirstRollMatchId) render(); },Math.max(0,(game.firstRollEndsAt||Date.now())-Date.now()+30));
+}
 function render() {
   if(!game) return;
+  renderFirstRoll();
   const human=gameMode==='online' ? game.players[localPlayerIndex] : game.players[0];
   els.opponents.innerHTML='';
   game.players.filter((player)=>player!==human).forEach((player)=>{ const shields=player.defenses.reduce((sum,card)=>sum+card.shield,0); const node=document.createElement('article'); node.className=`combatant ${!player.alive?'out':''} ${player===playerAtTurn()?'active':''} ${player===lastHitPlayer?'hit':''}`; node.innerHTML=`<h3>${player.name} <small>· ${player.role}</small></h3><div class="mini-info"><span>${player.alive?`${player.hp} HP`:'Knocked out'}</span><span>${player.hand.length} cards</span></div><div class="healthbar"><span style="width:${player.hp*10}%"></span></div>${shields?`<div class="mini-defense">🛡 ${shields} shield</div>`:''}${player.protected?'<div class="mini-defense">◉ protected</div>':''}`; els.opponents.append(node); });
@@ -425,7 +458,7 @@ function render() {
     }
     if(seenPlayedCardId!==played.id) { seenPlayedCardId=played.id; gameFeedback(played.art==='⚔'||played.art==='☄'?'attack':'card'); stage.classList.remove('active'); void stage.offsetWidth; stage.classList.add('active'); scheduleGameAction(()=>{ if(seenPlayedCardId===played.id) stage.classList.remove('active'); },1900); }
   } else stage.innerHTML='';
-  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished || Date.now()<(game.revealUntil||0); button.draggable=!button.disabled; button.addEventListener('dragstart',(event)=>{ if(button.disabled){event.preventDefault();return;} event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',card.id); $('played-card-stage').classList.add('drop-ready'); }); button.addEventListener('dragend',()=>$('played-card-stage').classList.remove('drop-ready')); const image=cardArtworkPath(card); button.innerHTML=`<div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${card.owner}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0); button.draggable=!button.disabled; button.addEventListener('dragstart',(event)=>{ if(button.disabled){event.preventDefault();return;} event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',card.id); $('played-card-stage').classList.add('drop-ready'); }); button.addEventListener('dragend',()=>$('played-card-stage').classList.remove('drop-ready')); const image=cardArtworkPath(card); button.innerHTML=`<div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${card.owner}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
   if(played && Date.now()<(game.revealUntil||0) && canControlTurn() && game.required>0) scheduleGameAction(()=>{ if(game && !game.finished) render(); },Math.max(0,game.revealUntil-Date.now()));
 }
 function renderCardLibrary() {
