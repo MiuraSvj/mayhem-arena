@@ -15,7 +15,7 @@ const characters = [
 const $ = (id) => document.getElementById(id);
 const els = { setup:$('setup-panel'), battle:$('battle-panel'), opponents:$('opponents'), hand:$('hand'), playerName:$('player-name'), playerHp:$('player-hp'), playerDefense:$('player-defense'), playerDeck:$('player-deck'), playerDiscard:$('player-discard'), deckCount:$('deck-count'), discardCount:$('discard-count'), discardPreview:$('discard-preview'), status:$('turn-status'), actions:$('action-counter'), message:$('battle-message'), log:$('game-log'), target:$('target-popover'), targetTitle:$('target-title'), targetOptions:$('target-options'), winner:$('winner-overlay'), winnerTitle:$('winner-title'), winnerText:$('winner-text'), winnerStats:$('winner-stats') };
 let selectedPlayers = 2;
-let selectedCharacter = 'sutha';
+let selectedCharacter = null;
 let game = null;
 let pendingCard = null;
 let accountMode = 'register';
@@ -32,6 +32,7 @@ let lastHitPlayer = null;
 let lastAction = null;
 let seenPlayedCardId = null;
 let profileMatchSaved = false;
+let randomCharacter = false;
 const gameTimeouts = new Set();
 
 function scheduleGameAction(callback, delay) {
@@ -126,6 +127,31 @@ function refillLowHand(player) {
 }
 function setStatus(text) { els.status.textContent = text; }
 function updateHouseRuleLabel() { $('house-rules-state').textContent=$('house-rules-toggle').checked ? 'ON' : 'OFF'; }
+function randomCharacterId(excluded=[]) {
+  const available=characters.filter((character)=>!excluded.includes(character.id));
+  const choices=available.length ? available : characters;
+  return choices[Math.floor(Math.random()*choices.length)].id;
+}
+function setSelectedCharacter(character) {
+  selectedCharacter=character;
+  document.querySelectorAll('.character-choice').forEach((button)=>button.classList.toggle('selected',button.dataset.character===character));
+}
+function syncRandomCharacterUi() {
+  ['random-character-toggle','lobby-random-character-toggle'].forEach((id)=>{ const input=$(id); if(input) input.checked=randomCharacter; });
+  $('random-character-state').textContent=randomCharacter?'ON':'OFF';
+  $('lobby-random-character-state').textContent=randomCharacter?'ON':'OFF';
+}
+function setRandomCharacter(enabled) {
+  randomCharacter=enabled;
+  syncRandomCharacterUi();
+  if(!enabled) return;
+  if(gameMode==='online' && onlineRoom) {
+    socket.emit('change-character',{code:onlineRoom.code,character:'random'},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; });
+    return;
+  }
+  const unavailable=gameMode==='online' ? onlinePlayers.filter((player)=>player.id!==socket?.id && !player.left).map((player)=>player.character) : [];
+  setSelectedCharacter(randomCharacterId(unavailable));
+}
 function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
@@ -134,12 +160,17 @@ function startGame() {
   seenPlayedCardId=null; profileMatchSaved=false;
   const houseRules = $('house-rules-toggle').checked;
   const rules = { houseRules, openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules, turnDraw: !houseRules };
+  if(gameMode!=='online' && randomCharacter) setSelectedCharacter(randomCharacterId());
   const chosen = characters.find((character)=>character.id===selectedCharacter);
+  if(gameMode!=='online' && !chosen) { setStatus('Choose a character before starting the battle.'); return; }
   const opponents = shuffle(characters.filter((character)=>character.id!==selectedCharacter)).slice(0,selectedPlayers-1);
   const names=[...document.querySelectorAll('#name-fields input')].map((input,index)=>input.value.trim() || `Player ${index+1}`);
-  if(gameMode==='online' && (!onlineRoom || onlinePlayers.length<2)) { setStatus('Create or join an online room before beginning.'); return; }
+  if(gameMode==='online' && (!onlineRoom || onlinePlayers.filter((player)=>!player.left).length<2)) { setStatus('Create or join an online room before beginning.'); return; }
   if(gameMode==='online' && onlineRoom.hostId!==socket.id) { setStatus('Only the room host can begin the battle.'); return; }
   const roster=gameMode==='online' ? onlinePlayers.filter((entry)=>!entry.left) : [{name:names[0],character:chosen.id},...opponents.map((character)=>({name:character.name,character:character.id}))];
+  if(gameMode==='online' && roster.length!==onlineRoom.limit) { setStatus('Every seat must be filled before starting.'); return; }
+  if(gameMode==='online' && roster.some((player)=>!player.character)) { setStatus('Every player must choose a character before the battle can begin.'); return; }
+  if(gameMode==='online' && roster.some((player)=>!player.ready)) { setStatus('Every player must press Ready before starting.'); return; }
   clearGameActions(); stopTurnTimer();
   game = { matchId:crypto.randomUUID(), players:roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name, ...(entry.id ? {socketId:entry.id} : {}) })), current:0, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
   if(gameMode==='online') localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id);
@@ -351,7 +382,7 @@ function renderCardLibrary() {
   $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((card) => `<article class="library-card"><div><strong>${card.name}</strong>${card.mighty ? '<em>Mighty Power</em>' : ''}</div><span class="library-count">×${card.count}</span><p>${cardText(card)}</p><small>${effectSymbols(card)}</small></article>`).join('')}</div></section>`).join('');
 }
 document.querySelectorAll('.player-count').forEach((button)=>button.addEventListener('click',()=>{ selectedPlayers=Number(button.dataset.players); document.querySelectorAll('.player-count').forEach((other)=>other.classList.toggle('selected',other===button)); renderNameFields(); }));
-document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ const character=button.dataset.character; if(gameMode==='online' && onlineRoom) { socket.emit('change-character',{code:onlineRoom.code,character},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; }); return; } selectedCharacter=character; document.querySelectorAll('.character-choice').forEach((other)=>other.classList.toggle('selected',other.dataset.character===character)); }));
+document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ const character=button.dataset.character; setRandomCharacter(false); if(gameMode==='online' && onlineRoom) { socket.emit('change-character',{code:onlineRoom.code,character},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; }); return; } setSelectedCharacter(character); }));
 function playerIdentity() { return currentAccount?.username || $('player-name-0')?.value.trim() || 'Player'; }
 function leaveOnlineMatch() {
   if(gameMode!=='online' || !onlineRoom || !socket) return;
@@ -365,23 +396,28 @@ function leaveOnlineMatch() {
 }
 function renderOnlineLobby(room) {
   onlineRoom={code:room.code,hostId:room.hostId,limit:room.limit}; onlinePlayers=room.players;
+  syncRandomCharacterUi();
   updateBattleControls();
-  const self=room.players.find((player)=>player.id===socket.id); if(self) selectedCharacter=self.character;
-  const claimed=new Set(room.players.filter((player)=>player.id!==socket.id).map((player)=>player.character));
-  document.querySelectorAll('.character-choice').forEach((button)=>{ const unavailable=claimed.has(button.dataset.character); button.disabled=unavailable; button.title=unavailable?'Already chosen in this room':''; button.classList.toggle('selected',button.dataset.character===selectedCharacter); });
-  const list=$('lobby-page-list'); list.innerHTML=''; room.players.forEach((player,index)=>{ const character=characters.find((item)=>item.id===player.character); const item=document.createElement('li'); item.innerHTML=`<span>${index===0?'👑 ':''}${player.name}${player.id===socket.id?' (You)':''}</span><small>${character?.name || player.character}</small>`; list.append(item); }); for(let seat=room.players.length;seat<room.limit;seat++){const item=document.createElement('li');item.className='empty';item.textContent=`Open seat ${seat+1}`;list.append(item);}
-  const host=room.hostId===socket.id; $('lobby-page-title').textContent=`Room ${room.code}`; $('lobby-page-count').textContent=`${room.players.length}/${room.limit}`; $('lobby-page-status').textContent=host ? `Share code ${room.code}. You can start when everyone has joined.` : `You joined room ${room.code}. Choose any available character while you wait.`; $('lobby-start-button').classList.toggle('hidden',!host); $('lobby-start-button').disabled=room.players.length<2; $('lobby-start-note').textContent=host ? (room.players.length<2?'Waiting for at least one more player.':'Everyone ready? Start the battle.') : 'Only the room host can start the battle.';
+  const self=room.players.find((player)=>player.id===socket.id); if(self) setSelectedCharacter(self.character || null);
+  const owners=new Map(room.players.filter((player)=>player.character && !player.left).map((player)=>[player.character,player]));
+  document.querySelectorAll('#lobby-character-grid .character-choice').forEach((button)=>{ const owner=owners.get(button.dataset.character); const unavailable=Boolean(owner && owner.id!==socket.id); button.disabled=unavailable; button.title=owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; button.classList.toggle('selected',button.dataset.character===selectedCharacter); let badge=button.querySelector('.claimed-by'); if(!badge) { badge=document.createElement('small'); badge.className='claimed-by'; button.querySelector('span:last-child').append(badge); } badge.textContent=owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; badge.classList.toggle('hidden',!owner); });
+  const host=room.hostId===socket.id; const active=room.players.filter((player)=>!player.left); const charactersReady=active.length===room.limit && active.every((player)=>player.character) && new Set(active.map((player)=>player.character)).size===active.length; const allReady=charactersReady && active.every((player)=>player.ready); const list=$('lobby-page-list'); list.innerHTML=''; room.players.forEach((player,index)=>{ const character=characters.find((item)=>item.id===player.character); const item=document.createElement('li'); const identity=document.createElement('span'); identity.textContent=`${index===0?'👑 ':''}${player.name}${player.id===socket.id?' (You)':''}`; const detail=document.createElement('span'); detail.className='lobby-player-detail'; const characterLabel=document.createElement('small'); characterLabel.textContent=character?.name || 'No character selected'; const readyLabel=document.createElement('small'); readyLabel.className=player.ready?'player-ready':'player-not-ready'; readyLabel.textContent=player.ready?'Ready':'Not ready'; detail.append(characterLabel,readyLabel); item.append(identity,detail); if(host && player.id!==socket.id){const kick=document.createElement('button');kick.type='button';kick.className='button ghost lobby-kick-button';kick.textContent='Kick';kick.setAttribute('aria-label',`Kick ${player.name}`);kick.onclick=()=>socket.emit('kick-player',{code:room.code,playerId:player.id},(result)=>{if(!result.ok)$('lobby-page-status').textContent=result.error;});item.append(kick);} list.append(item); }); for(let seat=active.length;seat<room.limit;seat++){const item=document.createElement('li');item.className='empty';item.textContent=`Open seat ${seat+1}`;list.append(item);}
+  $('lobby-ready-button').classList.remove('hidden'); $('lobby-ready-button').disabled=!self?.character; $('lobby-ready-button').textContent=self?.ready?'Not ready':'Ready'; $('lobby-ready-button').classList.toggle('is-ready',Boolean(self?.ready)); $('lobby-ready-button').onclick=()=>socket.emit('set-ready',{code:room.code,ready:!self?.ready},(result)=>{if(!result.ok)$('lobby-page-status').textContent=result.error;});
+  $('lobby-page-title').textContent=`Room ${room.code}`; $('lobby-page-count').textContent=`${active.length}/${room.limit}`; $('lobby-page-status').textContent=host ? `Share code ${room.code}. Fill every seat and wait for everyone to be ready.` : `You joined room ${room.code}. Choose a character and press Ready.`; $('lobby-start-button').classList.toggle('hidden',!host); $('lobby-start-button').disabled=!allReady; $('lobby-start-note').textContent=host ? (active.length<room.limit?'Every seat must be filled before the battle can start.':!charactersReady?'Every player must choose a different character.':!allReady?'Waiting for every player to press Ready.':'Everyone is ready. Start the battle!') : 'The host can start once every seat is filled and all players are ready.';
   els.setup.classList.add('hidden'); $('online-room-page').classList.remove('hidden');
 }
 function connectOnline() {
   if(socket) return;
   socket=io();
   socket.on('lobby-state',renderOnlineLobby);
+  socket.on('kicked-from-room',()=>{ onlineRoom=null; onlinePlayers=[]; setSelectedCharacter(null); $('online-room-page').classList.add('hidden'); els.setup.classList.remove('hidden'); $('room-status').textContent='The host removed you from the room.'; updateBattleControls(); });
   socket.on('online-game-state',({state,players})=>{ if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; } game=state; onlinePlayers=players; localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id); updateBattleControls(); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { stopTurnTimer(); showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
 }
 document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; updateBattleControls(); document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); const online=gameMode==='online'; $('online-lobby').classList.toggle('hidden',!online); $('battle-size-heading').textContent=online?'Choose online room size':'Choose the battle size'; if(online) connectOnline(); else { document.querySelectorAll('.character-choice,.player-count').forEach((control)=>{ control.disabled=false; control.title=''; }); } }));
-$('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:selectedCharacter,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
-$('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:selectedCharacter},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
+$('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:randomCharacter?'random':null,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
+$('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:randomCharacter?'random':null},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
+$('random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
+$('lobby-random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
 $('start-button').onclick=startGame; $('lobby-start-button').onclick=startGame; $('restart-button').onclick=()=>{ if(gameMode==='online') return; stopCurrentGame(); }; $('leave-online-button').onclick=leaveOnlineMatch; $('leave-room-button').onclick=()=>{ if(gameMode==='online') leaveOnlineMatch(); else stopCurrentGame(); }; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
 $('house-rules-toggle').addEventListener('change',updateHouseRuleLabel);
 $('card-library-button').onclick=()=>{ renderCardLibrary(); $('card-library-dialog').showModal(); }; $('close-card-library').onclick=()=>$('card-library-dialog').close();

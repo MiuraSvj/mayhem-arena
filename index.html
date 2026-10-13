@@ -58,11 +58,12 @@
           </section>
         </div>
         <div class="character-grid" id="character-grid">
-          <button class="character-choice selected barbarian" data-character="sutha" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Sutha the Skullcrusher</strong><small>Barbarian · aggressive powerhouse</small></span></button>
+          <button class="character-choice barbarian" data-character="sutha" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Sutha the Skullcrusher</strong><small>Barbarian · aggressive powerhouse</small></span></button>
           <button class="character-choice wizard" data-character="azzan" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Azzan the Mystic</strong><small>Wizard · spell-slinging tactician</small></span></button>
           <button class="character-choice paladin" data-character="lia" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Lia the Radiant</strong><small>Paladin · strikes and defense</small></span></button>
           <button class="character-choice rogue" data-character="oriax" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Oriax the Clever</strong><small>Rogue · tricks and dual-wielding</small></span></button>
         </div>
+        <label class="toggle-row random-character-row"><span><strong>Random character</strong><small>Pick a random character for each new battle or an available one in an online room.</small></span><span class="switch-control"><input id="random-character-toggle" type="checkbox" role="switch" /><i aria-hidden="true"></i><b id="random-character-state">OFF</b></span></label>
         <section class="drive-artwork" aria-label="Game artwork from the shared card reference photos">
           <img src="assets/character-roster.jpg" alt="The four available character cards: Oriax, Lia, Sutha, and Azzan" />
           <img src="IMG_5060.jpg" alt="Shared card reference showing the action icons and mighty powers" />
@@ -96,8 +97,10 @@
           <button class="character-choice paladin" data-character="lia" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Lia the Radiant</strong><small>Paladin · strikes and defense</small></span></button>
           <button class="character-choice rogue" data-character="oriax" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Oriax the Clever</strong><small>Rogue · tricks and dual-wielding</small></span></button>
         </div>
+        <label class="toggle-row random-character-row"><span><strong>Random character</strong><small>Choose a random available character in this room.</small></span><span class="switch-control"><input id="lobby-random-character-toggle" type="checkbox" role="switch" /><i aria-hidden="true"></i><b id="lobby-random-character-state">OFF</b></span></label>
+        <button class="button" id="lobby-ready-button" type="button">Ready</button>
         <button class="button primary" id="lobby-start-button" type="button">Start battle</button>
-        <p class="fine-print" id="lobby-start-note">Only the room host can start the battle once at least two players are ready.</p>
+        <p class="fine-print" id="lobby-start-note">Fill every seat and have every player choose a character and press Ready.</p>
       </section>
 
       <section class="battle hidden" id="battle-panel">
