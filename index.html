@@ -6,6 +6,9 @@
     <meta name="theme-color" content="#14110e" />
     <title>Mayhem Arena</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .library-decks{display:grid;gap:18px;margin-top:18px}.library-deck{padding:14px;border:1px solid var(--line);border-radius:12px;background:#191411}.library-deck h3{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}.library-deck h3 small{font-weight:500;color:var(--muted)}.library-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.library-card{position:relative;padding:11px;border-radius:8px;background:#30241e;border-left:4px solid var(--gold)}.library-card>div{display:flex;align-items:center;gap:7px;padding-right:28px}.library-card strong{font-size:.85rem}.library-card em{padding:2px 5px;border-radius:4px;background:#5c4321;color:#ffdf80;font-size:.58rem;font-style:normal;font-weight:800;text-transform:uppercase}.library-card p{margin:7px 0;color:#ded0ba;font-size:.75rem;line-height:1.35}.library-card small{color:#ffd76d;font-size:.69rem;font-weight:800}.library-count{position:absolute;right:10px;top:10px;color:var(--gold);font-weight:900}@media(min-width:701px) and (min-height:700px){body:not(:has(.battle:not(.hidden))){overflow:auto}.app-shell:not(:has(.battle:not(.hidden))){height:auto;overflow:visible;display:block;padding:28px clamp(16px,4vw,56px) 56px}}@media(max-width:700px){.library-cards{grid-template-columns:1fr}.library-card{padding:10px}.library-intro{font-size:.74rem}}
+    </style>
   </head>
   <body>
     <main class="app-shell">
@@ -16,6 +19,7 @@
         </div>
         <div class="topbar-actions">
           <button class="button ghost" id="account-button" type="button">Create account / Sign in</button>
+          <button class="button ghost" id="card-library-button" type="button">Card library</button>
           <button class="button ghost" id="rules-button" type="button">How to play</button>
           <button class="button" id="restart-button" type="button">New battle</button>
         </div>
@@ -23,6 +27,7 @@
 
       <section class="status-strip" aria-live="polite">
         <div id="turn-status">Choose a character and game size to begin.</div>
+        <div class="turn-timer" id="turn-timer" aria-label="Turn timer"><span id="timer-label">60s</span><i><b id="timer-bar"></b></i></div>
         <div class="counter" id="action-counter">Cards to play: —</div>
       </section>
 
@@ -38,9 +43,14 @@
           <button class="mode-choice" data-mode="online" type="button"><strong>Online room</strong><small>Create or join a private game code.</small></button>
         </div>
         <div class="online-lobby hidden" id="online-lobby">
+          <p class="lobby-note">Choose the online room size below, then create a room or enter a friend’s code.</p>
           <button class="button primary" id="create-room" type="button">Create private room</button>
           <div class="join-room"><input id="room-code" maxlength="6" placeholder="Room code" autocomplete="off" /><button class="button" id="join-room" type="button">Join</button></div>
           <p id="room-status" aria-live="polite">Create a room, then share its code with friends.</p>
+          <section class="room-members hidden" id="room-members" aria-live="polite">
+            <div class="room-members-heading"><strong id="room-title">Online lobby</strong><span id="room-count">0/0</span></div>
+            <ol id="room-player-list"></ol>
+          </section>
         </div>
         <div class="character-grid" id="character-grid">
           <button class="character-choice selected barbarian" data-character="sutha" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Sutha the Skullcrusher</strong><small>Barbarian · aggressive powerhouse</small></span></button>
@@ -53,7 +63,7 @@
           <img src="IMG_5060.jpg" alt="Shared card reference showing the action icons and mighty powers" />
           <img src="IMG_5091.jpg" alt="Shared purple card reference for Rogue actions and mighty powers" />
         </section>
-        <h3 class="setup-subheading">Choose the battle size</h3>
+        <h3 class="setup-subheading" id="battle-size-heading">Choose the battle size</h3>
         <div class="setup-actions">
           <button class="player-count selected" data-players="2" type="button">2 players</button>
           <button class="player-count" data-players="3" type="button">3 players</button>
@@ -84,6 +94,7 @@
             <small id="discard-count">0 cards</small>
           </div>
         </section>
+        <div class="action-banner" id="action-banner" aria-live="assertive"><span>⚔</span><strong>Waiting for the next move</strong></div>
 
         <section class="player-board" id="player-board">
           <div class="player-heading">
@@ -119,6 +130,12 @@
       </div>
       <figure class="reference-photo"><img src="IMG_5122.jpg" alt="How to play reference photo from the supplied Drive folder" /><figcaption>Original reference sheet supplied with the card photos.</figcaption></figure>
       <p class="fine-print">This is an original fan-made implementation of the supplied game system for local play. It uses original card names and presentation.</p>
+    </dialog>
+
+    <dialog id="card-library-dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">Complete deck reference</p><h2>Card library</h2></div><button class="icon-button" id="close-card-library" aria-label="Close card library">×</button></div>
+      <p class="fine-print library-intro">Every listed card includes its effect and the number of copies in that character’s deck.</p>
+      <div class="library-decks" id="library-decks"></div>
     </dialog>
 
     <div class="target-popover hidden" id="target-popover" role="dialog" aria-modal="true">

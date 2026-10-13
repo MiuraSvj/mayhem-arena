@@ -25,6 +25,20 @@ let socket = null;
 let onlineRoom = null;
 let onlinePlayers = [];
 let localPlayerIndex = 0;
+const TURN_LIMIT_SECONDS = 60;
+let turnDeadline = 0;
+let timerInterval = null;
+let lastHitPlayer = null;
+let lastAction = null;
+
+function stopTurnTimer() { if(timerInterval) window.clearInterval(timerInterval); timerInterval=null; }
+function refreshTurnTimer() {
+  const seconds=Math.max(0,Math.ceil((turnDeadline-Date.now())/1000));
+  $('timer-label').textContent=`${seconds}s`; $('timer-bar').style.width=`${Math.max(0,(seconds/TURN_LIMIT_SECONDS)*100)}%`;
+  $('turn-timer').classList.toggle('warning',seconds<=10);
+  if(seconds===0) { stopTurnTimer(); if(!game || game.finished) return; if(gameMode==='online' && !canControlTurn()) return; log(`${playerAtTurn().name}'s time ran out.`); game.required=0; if(game.rules.stackDamage && game.pendingDamage.length) resolvePendingDamage(); nextTurn(); }
+}
+function startTurnTimer() { stopTurnTimer(); turnDeadline=Date.now()+TURN_LIMIT_SECONDS*1000; if(game) game.turnEndsAt=turnDeadline; refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); }
 
 function renderNameFields() {
   const holder=$('name-fields');
@@ -66,6 +80,7 @@ function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
 function startGame() {
+  lastAction = null; lastHitPlayer = null;
   const rules = { openingHand: $('opening-hand-toggle').checked, stackDamage: $('damage-stack-toggle').checked, oneCardRefill: $('one-card-refill-toggle').checked };
   const chosen = characters.find((character)=>character.id===selectedCharacter);
   const opponents = shuffle(characters.filter((character)=>character.id!==selectedCharacter)).slice(0,selectedPlayers-1);
@@ -85,6 +100,7 @@ function beginTurn() {
   if (game.finished) return;
   let player = playerAtTurn();
   if (!player.alive) return nextTurn();
+  startTurnTimer();
   if (player.protected) { player.protected=false; log(`${player.name}'s Clever Disguise fades.`); }
   draw(player,1); game.required = 1; game.started = true;
   log(`${player.name} draws a card.`);
@@ -101,6 +117,7 @@ function checkWinner() {
   const standing = activePlayers();
   if (standing.length > 1) return false;
   game.finished = true;
+  stopTurnTimer();
   const winner = standing[0];
   els.winner.classList.remove('hidden');
   els.winnerTitle.textContent = winner?.isHuman ? 'Victory!' : `${winner?.name || 'Nobody'} wins`;
@@ -117,6 +134,7 @@ function damage(target, amount, attacker) {
   }
   if (remaining) { target.hp = Math.max(0,target.hp-remaining); log(`${attacker.name} deals ${remaining} damage to ${target.name}.`); }
   else log(`${target.name}'s defenses absorb ${amount} damage.`);
+  if (remaining) { lastHitPlayer=target; window.setTimeout(()=>{ lastHitPlayer=null; render(); },600); }
   if (target.hp === 0) { target.alive=false; target.hand=[]; log(`${target.name} is knocked out!`); }
 }
 function queueDamage(target, amount, attacker) {
@@ -132,6 +150,10 @@ function resolvePendingDamage() {
 function effectSymbols(card) { const result=[]; if(card.damage) result.push(`${card.area?'☄':'⚔'} ${card.damage}${card.areaSelf?' all':''}`); if(card.shield) result.push(`🛡 ${card.shield}`); if(card.heal) result.push(`♥ ${card.heal}`); if(card.healPerOpponent) result.push('♥ × foes'); if(card.draw) result.push(`▣ ${card.draw}`); if(card.again) result.push(`⚡ ${card.again}`); if(card.swap) result.push('⇄ HP'); if(card.destroyDefense) result.push('✦ break'); if(card.destroyAllDefense) result.push('✦ all break'); if(card.stealDefense) result.push('⇣ shield'); if(card.discardTarget) result.push('✕ discard'); if(card.discardHandDraw) result.push(`↻ ${card.discardHandDraw}`); if(card.reclaim) result.push('↶ reclaim'); if(card.protected) result.push('◉ ward'); if(card.stealTop) result.push('⇣ card'); return result.join('  '); }
 function effectRows(card) { const rows=[]; if(card.damage) rows.push(`<span><b>${card.area?'☄':'⚔'}</b>${card.area ? `Deal ${card.damage} to ${card.areaSelf?'every player':'each opponent'}` : `Deal ${card.damage} damage`}</span>`); if(card.shield) rows.push(`<span><b>🛡</b>Block ${card.shield} damage</span>`); if(card.heal) rows.push(`<span><b>♥</b>Recover ${card.heal} HP</span>`); if(card.healPerOpponent) rows.push('<span><b>♥</b>Recover 1 HP per opponent</span>'); if(card.draw) rows.push(`<span><b>▣</b>Draw ${card.draw} card${card.draw>1?'s':''}</span>`); if(card.again) rows.push(`<span><b>⚡</b>Play ${card.again===1?'an extra card':`${card.again} extra cards`}</span>`); if(card.swap) rows.push('<span class="mighty"><b>✦</b>Swap HP with an opponent</span>'); if(card.destroyDefense) rows.push('<span class="mighty"><b>✦</b>Destroy an active defense</span>'); if(card.destroyAllDefense) rows.push('<span class="mighty"><b>✦</b>Destroy every defense</span>'); if(card.stealDefense) rows.push('<span class="mighty"><b>⇣</b>Take an active defense</span>'); if(card.discardTarget) rows.push('<span class="mighty"><b>✕</b>Target discards a card</span>'); if(card.discardHandDraw) rows.push(`<span class="mighty"><b>↻</b>All discard, then draw ${card.discardHandDraw}</span>`); if(card.reclaim) rows.push('<span class="mighty"><b>↶</b>Choose a discard to return</span>'); if(card.protected) rows.push('<span class="mighty"><b>◉</b>Ignore effects until next turn</span>'); if(card.stealTop) rows.push('<span class="mighty"><b>⇣</b>Take and play their top card</span>'); return rows.join(''); }
 function playCard(actor, card, target=null, reclaimChoice=null) {
+  const clicked=document.querySelector(`.card[data-card-id="${card.id}"]`); if(clicked) clicked.classList.add('played');
+  if(card.damage) lastAction={actor,card,target,area:card.area};
+  else if(target && (card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop)) lastAction={actor,card,target,area:false};
+  else lastAction={actor,card,target:null,area:false};
   actor.hand.splice(actor.hand.indexOf(card),1); game.required = Math.max(0,game.required-1) + (card.again || 0);
   const reclaimCandidate = card.reclaim ? (reclaimChoice || actor.discard.at(-1)) : null;
   const dealDamage = (recipient) => {
@@ -229,12 +251,18 @@ function render() {
   if(!game) return;
   const human=gameMode==='online' ? game.players[localPlayerIndex] : game.players[0];
   els.opponents.innerHTML='';
-  game.players.filter((player)=>player!==human).forEach((player)=>{ const shields=player.defenses.reduce((sum,card)=>sum+card.shield,0); const node=document.createElement('article'); node.className=`combatant ${!player.alive?'out':''}`; node.innerHTML=`<h3>${player.name} <small>· ${player.role}</small></h3><div class="mini-info"><span>${player.alive?`${player.hp} HP`:'Knocked out'}</span><span>${player.hand.length} cards</span></div><div class="healthbar"><span style="width:${player.hp*10}%"></span></div>${shields?`<div class="mini-defense">🛡 ${shields} shield</div>`:''}${player.protected?'<div class="mini-defense">◉ protected</div>':''}`; els.opponents.append(node); });
+  game.players.filter((player)=>player!==human).forEach((player)=>{ const shields=player.defenses.reduce((sum,card)=>sum+card.shield,0); const node=document.createElement('article'); node.className=`combatant ${!player.alive?'out':''} ${player===lastHitPlayer?'hit':''}`; node.innerHTML=`<h3>${player.name} <small>· ${player.role}</small></h3><div class="mini-info"><span>${player.alive?`${player.hp} HP`:'Knocked out'}</span><span>${player.hand.length} cards</span></div><div class="healthbar"><span style="width:${player.hp*10}%"></span></div>${shields?`<div class="mini-defense">🛡 ${shields} shield</div>`:''}${player.protected?'<div class="mini-defense">◉ protected</div>':''}`; els.opponents.append(node); });
   els.playerName.innerHTML=`${human.name} <span class="hp">${human.hp} HP</span>`; els.playerDeck.textContent=`Deck ${human.deck.length}`; els.playerDiscard.textContent=`Discard ${human.discard.length}`; els.deckCount.textContent=`${human.deck.length} cards`; els.discardCount.textContent=`${human.discard.length} cards`; const last=human.discard.at(-1); els.discardPreview.textContent=last ? effectSymbols(last).split(' ')[0] : '?';
   els.playerDefense.innerHTML=(human.defenses.length ? human.defenses.map((card)=>`<span class="defense-token">🛡 ${card.name}: ${card.shield}</span>`).join('') : '<span class="defense-token">No active defenses</span>') + (human.protected ? '<span class="defense-token">◉ Protected until your next turn</span>' : '');
   const stacked = game.pendingDamage.reduce((sum,hit)=>sum+hit.amount,0);
   els.actions.textContent = game.finished ? 'Cards to play: —' : `Cards to play: ${game.required}${stacked ? ` · Stacked damage: ${stacked}` : ''}`;
-  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished; button.innerHTML=`<div class="card-topline"><span>${card.role}</span><span>${card.type}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-art" aria-hidden="true"><span>${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-effects">${effectRows(card)}</div><div class="card-footer"><span>${card.owner === 'sutha' ? 'SKULLCRUSHER' : card.owner === 'azzan' ? 'MYSTIC' : card.owner === 'lia' ? 'RADIANT' : 'CLEVER'}</span><b>${effectSymbols(card)}</b></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+  const banner=$('action-banner');
+  if(lastAction) { const targetText=lastAction.area ? (lastAction.card.areaSelf ? 'every player' : 'all opponents') : (lastAction.target ? lastAction.target.name : 'their board'); banner.innerHTML=`<span>${lastAction.card.damage?'⚔':'✦'}</span><strong>${lastAction.actor.name} used ${lastAction.card.name}${lastAction.card.damage || lastAction.target ? ` → ${targetText}` : ''}</strong>`; banner.classList.remove('attack'); void banner.offsetWidth; banner.classList.add('attack'); }
+  else banner.innerHTML='<span>⚔</span><strong>Waiting for the next move</strong>';
+  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished; button.innerHTML=`<div class="card-topline"><span>${card.role}</span><span>${card.type}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-art" aria-hidden="true"><span>${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-effects">${effectRows(card)}</div><div class="card-footer"><span>${card.owner === 'sutha' ? 'SKULLCRUSHER' : card.owner === 'azzan' ? 'MYSTIC' : card.owner === 'lia' ? 'RADIANT' : 'CLEVER'}</span><b>${effectSymbols(card)}</b></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+}
+function renderCardLibrary() {
+  $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((card) => `<article class="library-card"><div><strong>${card.name}</strong>${card.mighty ? '<em>Mighty Power</em>' : ''}</div><span class="library-count">×${card.count}</span><p>${cardText(card)}</p><small>${effectSymbols(card)}</small></article>`).join('')}</div></section>`).join('');
 }
 document.querySelectorAll('.player-count').forEach((button)=>button.addEventListener('click',()=>{ selectedPlayers=Number(button.dataset.players); document.querySelectorAll('.player-count').forEach((other)=>other.classList.toggle('selected',other===button)); renderNameFields(); }));
 document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ selectedCharacter=button.dataset.character; document.querySelectorAll('.character-choice').forEach((other)=>other.classList.toggle('selected',other===button)); }));
@@ -242,13 +270,14 @@ function playerIdentity() { return currentAccount?.username || $('player-name-0'
 function connectOnline() {
   if(socket) return;
   socket=io();
-  socket.on('lobby-state',(room)=>{ onlineRoom={code:room.code,hostId:room.hostId,limit:room.limit}; onlinePlayers=room.players; const host=room.hostId===socket.id; $('room-status').textContent=`Room ${room.code}: ${room.players.length}/${room.limit} players. ${host ? 'You are the host—start when everyone has joined.' : 'Waiting for the host to begin.'}`; });
-  socket.on('online-game-state',({state,players})=>{ game=state; onlinePlayers=players; localPlayerIndex=players.findIndex((player)=>player.id===socket.id); els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; render(); const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
+  socket.on('lobby-state',(room)=>{ onlineRoom={code:room.code,hostId:room.hostId,limit:room.limit}; onlinePlayers=room.players; const joined=room.players.some((player)=>player.id===socket.id); const claimed=new Set(room.players.filter((player)=>player.id!==socket.id).map((player)=>player.character)); document.querySelectorAll('.character-choice').forEach((button)=>{ const unavailable=claimed.has(button.dataset.character); button.disabled=joined || unavailable; button.title=joined?'Character selection is locked after joining the room.':(unavailable?'Already chosen in this room':''); }); document.querySelectorAll('.player-count').forEach((button)=>button.disabled=joined); const list=$('room-player-list'); list.innerHTML=''; room.players.forEach((player,index)=>{ const character=characters.find((item)=>item.id===player.character); const item=document.createElement('li'); item.innerHTML=`<span>${index===0?'👑 ':''}${player.name}</span><small>${character?.name || player.character}</small>`; list.append(item); }); for(let seat=room.players.length;seat<room.limit;seat++){const item=document.createElement('li');item.className='empty';item.textContent=`Open seat ${seat+1}`;list.append(item);} $('room-members').classList.remove('hidden'); $('room-title').textContent=`Room ${room.code}`; $('room-count').textContent=`${room.players.length}/${room.limit}`; const host=room.hostId===socket.id; $('room-status').textContent=host ? `You are hosting a ${room.limit}-player room. Share code ${room.code}, then begin when ready.` : `You joined room ${room.code}. Waiting for the host to begin.`; });
+  socket.on('online-game-state',({state,players})=>{ game=state; onlinePlayers=players; localPlayerIndex=players.findIndex((player)=>player.id===socket.id); els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
 }
-document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); $('online-lobby').classList.toggle('hidden',gameMode!=='online'); if(gameMode==='online') connectOnline(); }));
+document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); const online=gameMode==='online'; $('online-lobby').classList.toggle('hidden',!online); $('battle-size-heading').textContent=online?'Choose online room size':'Choose the battle size'; if(online) connectOnline(); else { document.querySelectorAll('.character-choice,.player-count').forEach((control)=>{ control.disabled=false; control.title=''; }); } }));
 $('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:selectedCharacter,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:selectedCharacter},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('start-button').onclick=startGame; $('restart-button').onclick=()=>{ els.winner.classList.add('hidden'); els.battle.classList.add('hidden'); els.setup.classList.remove('hidden'); setStatus('Choose a character and game size to begin.'); els.actions.textContent='Cards to play: —'; }; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
+$('card-library-button').onclick=()=>{ renderCardLibrary(); $('card-library-dialog').showModal(); }; $('close-card-library').onclick=()=>$('card-library-dialog').close();
 $('account-button').onclick=()=>showAccountDialog(currentAccount ? 'login' : 'register');
 $('close-account').onclick=()=>$('account-dialog').close();
 $('account-mode').onclick=()=>showAccountDialog(accountMode==='register' ? 'login' : 'register');
