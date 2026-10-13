@@ -80,6 +80,25 @@
         <button class="button primary" id="start-button" type="button">Begin battle</button>
       </section>
 
+      <section class="setup-card lobby-page hidden" id="online-room-page">
+        <p class="eyebrow">Online lobby</p>
+        <h2 id="lobby-page-title">Room</h2>
+        <p id="lobby-page-status">Waiting for players.</p>
+        <section class="room-members" aria-live="polite">
+          <div class="room-members-heading"><strong>Players</strong><span id="lobby-page-count">0/0</span></div>
+          <ol id="lobby-page-list"></ol>
+        </section>
+        <h3 class="setup-subheading">Choose your character</h3>
+        <div class="character-grid" id="lobby-character-grid">
+          <button class="character-choice barbarian" data-character="sutha" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Sutha the Skullcrusher</strong><small>Barbarian · aggressive powerhouse</small></span></button>
+          <button class="character-choice wizard" data-character="azzan" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Azzan the Mystic</strong><small>Wizard · spell-slinging tactician</small></span></button>
+          <button class="character-choice paladin" data-character="lia" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Lia the Radiant</strong><small>Paladin · strikes and defense</small></span></button>
+          <button class="character-choice rogue" data-character="oriax" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Oriax the Clever</strong><small>Rogue · tricks and dual-wielding</small></span></button>
+        </div>
+        <button class="button primary" id="lobby-start-button" type="button">Start battle</button>
+        <p class="fine-print" id="lobby-start-note">Only the room host can start the battle once at least two players are ready.</p>
+      </section>
+
       <section class="battle hidden" id="battle-panel">
         <div class="opponents" id="opponents" aria-label="Opponents"></div>
 
