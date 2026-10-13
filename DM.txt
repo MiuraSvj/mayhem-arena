@@ -1,0 +1,69 @@
+(update the game)
+cd C:\Users\geral\Documents\ChatGPT\DM
+git add .
+git commit -m "Update game layout"
+git push origin main
+
+🧙‍♂️ Azzan the Mystic (Wizard Deck)
+
+• Lightning Bolt (4x): ⚔️ ⚔️ ⚔️(Deals 3 damage).
+• Magic Missile (3x): ⚔️ + ⚡ (Deals 1 damage, then play another card).
+• Burning Hands (3x): ⚔️ ⚔️ (Deals 2 damage).
+• Knowledge is Power (3x): ➕ ➕ ➕ (Draw 3 cards).
+• Speed of Thought (3x): ⚡ ⚡ (Play 2 more cards from your hand sequentially).
+• Fireball (2x): ⚔️ ⚔️ ⚔️ (Deals 3 damage to each player includes you deals 3 damage)
+• Evil Sneer (2x): ❤️ + ⚡ (Heal 1 HP, then play another card).
+• Shield (2x): 🛡️ + ➕(Deals 1 Shield point of protection, Draw 1 card).
+• Stoneskin (1x): 🛡️ 🛡️ (An active shield that blocks 2 damage).
+• Mirror Image (1x): 🛡️ 🛡️ 🛡️ (An elite active shield that blocks 3 total damage).
+• Charm (Mighty Power - 2x): Text effect: Steal one face-up Shield card from any opponent and place it in front of yourself as your own defense.
+• Vampiric Touch (Mighty Power - 2x): Text effect: Swap your exact remaining Hit Point total with any chosen opponent.
+
+🛡️ Lia the Radiant (Paladin Deck)
+
+• For Justice! (3x): ⚔️ + ⚡ (Deals 1 damage, play another card).
+• Fighting Words (3x): ⚔️  ⚔️ + ❤️ (Deals 2 damage, heal 1 HP).
+• For Even More Justice! (4x): ⚔️ ⚔️ (Deals 2 damage).
+• For the Most Justice! (2x): ⚔️ ⚔️ ⚔️ (Deals 3 heavy damage).
+• Divine Smite (3x): ⚔️ ⚔️ ⚔️ + ❤️ (Deals 3 damage and heals you for 1 HP).
+• Divine Shield (2x): 🛡️ 🛡️ 🛡️ (A heavy shield that blocks 3 total damage).
+• Spinning Parry (2x): 🛡️ + ➕ (A standard shield that blocks 1 damage, draw 1 card).
+• Finger-Wag of Judgement (2x): ⚡ ⚡ (Play 2 more cards from your hand sequentially).
+• Divine Inspiration (2x): 🌅 + ❤️ ❤️ (choose any card in you discard pile and put into your hand, then heal 2).
+• Cure Wounds (1x): ➕ ➕ + ❤️ (draw 2 card, Instantly heal 1 HP).
+• High Charisma (2x): ➕ ➕(Draw 2 cards).
+• Banishing Smite (Mighty Power - 1x): Text effect: Instantly destroy all shield card including you.
+• Fluffy (Mighty Power - 1x): Text effect: Summons a giant pet defense card tracking 🛡️ 🛡️  (A massive 2-point shield).
+
+🗡️ Oriax the Clever (Rogue Deck)
+
+• Sneak Attack (2x): ❌🛡️ + ➕ (Distroy one shield card in play, play another card)
+• One Thrown Dagger (5x): ⚔️ + ⚡ (Deals 1 damage, play another card).
+• Two Thrown Daggers (4x): ⚔️ ⚔️ (Deals 2 damage).
+• All The Thrown Daggers (3x): ⚔️ ⚔️ ⚔️ (Deals 3 damage).
+• Even More Daggers (1x): ➕➕ + ❤️(Draw 2 cards and heal 1).
+• Winged Serpent (2x): 🛡️ + ➕ + (shield 1 damage, draw 1 card).
+• The Goon Squad (2x): 🛡️🛡️(Deals 2 Shield point).
+• Clever Disguise (2x):you cant be affected of anything this round).
+• Cunning Action (2x):⚡⚡ (play 2 another card).
+• Stolen Potion (2x): ❤️ + ⚡ (Heal 1 HP, play another card).
+• My Little Friend (1x): 🛡️ 🛡️ 🛡️(Deals 1 Shield point, draw 1 card, play another card).
+• Pick Pocket (Mighty Power - 2x): Text effect: Draw the top card of an opponent's deck into your hand. You can play it normally this turn, using their skills against them!
+
+🪓 Sutha the Skullcrusher (Barbarian Deck)
+
+• Big Axe is Best Axe (5x): ⚔️ ⚔️ ⚔️ (Deals a massive 3 damage outright).
+• Two Axes are Better Than One (2x):⚡⚡(play 2 another card).
+• Mighty Toss (2x): ❌🛡️ + ➕ (destroy on shield card in play, then draw 1 card).
+• Headbutt (2x): ⚔️ + ⚡ (Deals 1 damage, play another card).
+• Brutal Punch (2x): ⚔️ ⚔️ (Deals 2 damage).
+• Rage! (2x): ⚔️ ⚔️ ⚔️ ⚔️(Deals 4 damagexx).
+• Open the Armory (2x): ➕ ➕ (Draw 2 cards).
+• Flex (2x): ❤️ + ➕ (heal 1, draw 1 card).
+• Spiked Shield (1x): 🛡️ 🛡️ (deploying a 2-point active shield).
+• Riff (1x): 🛡️🛡️🛡️ (shield 3 ).
+• Raff (1x): 🛡️🛡️🛡️ (shield 3 ).
+• Snack Time (1x): ➕➕ + ❤️ (draw 2, Heals 1 HP).
+• Bag of Rats (Mighty Power - 1x): 🛡️ + ➕ (add 1 shield and draw 1 card).
+• Whirling Axes (Mighty Power - 2x): Text effect: Deals 1 damage to every single opponent on the board simultaneously, and heals Sutha for 1 HP per opponent hit.
+• Battle Roar (Mighty Power - 2x): Text effect: Forces every player at the table (including yourself) to discard their entire hand and draw 3 brand new cards and play another card.
