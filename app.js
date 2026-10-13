@@ -90,6 +90,12 @@ function draw(player, count = 1) {
     if (player.deck.length) player.hand.push(player.deck.pop());
   }
 }
+function refillLowHand(player) {
+  if(!game.rules.oneCardRefill || player.hand.length>1 || !player.alive) return;
+  const hadOne=player.hand.length===1;
+  draw(player,2);
+  log(`${player.name} ${hadOne?'has one card left':'has an empty hand'} and automatically draws 2 cards.`);
+}
 function setStatus(text) { els.status.textContent = text; }
 function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
@@ -119,6 +125,7 @@ function beginTurn() {
   if (!player.alive) return nextTurn();
   startTurnTimer();
   if (player.protected) { player.protected=false; log(`${player.name}'s Clever Disguise fades.`); }
+  refillLowHand(player);
   if(game.rules.turnDraw) { draw(player,1); log(`${player.name} draws a card.`); }
   game.required = 1; game.started = true;
   if(canControlTurn()) { setStatus(`${player.name}'s turn.`); els.message.textContent = `${player.name}, choose a card and make your move.`; render(); }
@@ -237,7 +244,7 @@ function playCard(actor, card, target=null, reclaimChoice=null) {
     if (stolen) { actor.hand.push(stolen); game.required=Math.max(1,game.required); log(`${actor.name} takes ${stolen.name} from ${target.name}'s deck and may play it this turn.`); }
     else log(`${target.name}'s deck has no card to steal.`);
   }
-  if (game.rules.oneCardRefill && actor.hand.length<=1 && actor.alive) { const hadOne=actor.hand.length===1; draw(actor,2); log(`${actor.name} ${hadOne?'has one card left':'has an empty hand'} and automatically draws 2 cards.`); }
+  refillLowHand(actor);
   if (game.rules.stackDamage && game.required===0 && game.pendingDamage.length) resolvePendingDamage();
   if (checkWinner()) { render(); syncOnlineGame(); return; }
   render();
