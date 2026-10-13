@@ -53,3 +53,101 @@ body:has(.battle:not(.hidden)) .hand{height:auto!important;min-height:0;overflow
 @media(max-width:700px){body:has(.battle:not(.hidden)) .played-card-stage:has(.reveal-card){min-height:160px}.app-shell:has(.battle:not(.hidden)){padding:10px 10px 24px}.topbar{flex-direction:row;align-items:center}.topbar-actions{flex-direction:row;flex-wrap:wrap}.battle{display:grid!important}}
 .character-choice:disabled { opacity:.58; cursor:not-allowed; border-color:#8b6035; }.character-choice .claimed-by { color:var(--gold); font-size:.66rem; font-weight:700; }
 .lobby-player-detail { display:grid; justify-items:end; gap:2px; }.player-ready { color:var(--green); font-weight:700; }.player-not-ready { color:var(--muted); }.lobby-kick-button { padding:5px 9px; font-size:.7rem; }.button.is-ready { border-color:var(--green); color:var(--green); }
+.character-portrait { background-image:url('/assets/character-roster.jpg'); background-size:150px 200px; background-repeat:no-repeat; }.character-portrait::after { content:none!important; }.barbarian .character-portrait { background-position:-17px -100px; border-color:#92b966; background-color:#788b39; }.wizard .character-portrait { background-position:-78px -100px; border-color:#9671df; background-color:#6240a5; }.paladin .character-portrait { background-position:-78px -22px; border-color:#ef7666; background-color:#a83e36; }.rogue .character-portrait { background-position:-17px -22px; border-color:#e8b442; background-color:#b87814; }
+.card-art { position:relative; overflow:hidden; background:#211914; }.card-art .card-character-face { position:absolute; inset:0; display:block; background-image:url('/assets/character-roster.jpg'); background-size:480px 640px; background-repeat:no-repeat; opacity:.95; }.card-art.sutha .card-character-face { background-position:-58px -345px; }.card-art.azzan .card-character-face { background-position:-270px -345px; }.card-art.lia .card-character-face { background-position:-270px -68px; }.card-art.oriax .card-character-face { background-position:-58px -68px; }.card-art .card-effect-icon { position:absolute; z-index:1; right:5px; bottom:4px; width:25px; height:25px; display:grid; place-items:center; border:1px solid #fff9; border-radius:50%; background:#16110de8; color:#fff5d8; font-size:1rem; text-shadow:0 1px 2px #000; }
+.card-art { height:60px; }.card-art.sutha .card-character-face { background-position:-58px -360px; }.card-art.azzan .card-character-face { background-position:-270px -360px; }.card-art.lia .card-character-face { background-position:-270px -105px; }.card-art.oriax .card-character-face { background-position:-58px -105px; }
+@media(max-width:700px){body:has(.battle:not(.hidden)) .card-art{height:36px}}
+
+/* Arena polish: stronger hierarchy, clearer states, and a consistent finish. */
+:root { --ink:#fff4df; --muted:#c3b5a0; --paper:#211a16; --paper-hi:#34271f; --line:#70583f; --gold:#f2bf59; --red:#f27663; --green:#8dc781; --shadow:0 22px 65px #0009; }
+body { background:radial-gradient(ellipse at 50% -12%,#65412a 0,#32231b 30rem,#171210 72rem); }
+button,input { font:inherit; }
+button:focus-visible,input:focus-visible { outline:3px solid #ffe093; outline-offset:3px; }
+.app-shell { max-width:1400px; }
+.topbar { padding-bottom:15px; border-bottom:1px solid #ffffff12; }
+.topbar .eyebrow { color:#ffd477; letter-spacing:.16em; }
+.topbar-actions .button { min-height:42px; border-color:#806448; background:linear-gradient(180deg,#3d2c21,#2a1e18); box-shadow:0 3px 0 #100b08; transition:transform .18s ease,border-color .18s ease,filter .18s ease; }
+.topbar-actions .button:hover { transform:translateY(-2px); border-color:var(--gold); filter:brightness(1.12); }
+.button { transition:transform .16s ease,filter .16s ease,border-color .16s ease; }
+.button:hover:not(:disabled) { transform:translateY(-1px); }
+.button:disabled { cursor:not-allowed; filter:saturate(.45); opacity:.56; }
+.button.primary { box-shadow:0 4px 0 #8e5c20,0 8px 20px #0004; }
+.setup-card { max-width:760px; margin:40px auto; padding:clamp(22px,4vw,40px); border-color:#8b6b46; background:linear-gradient(145deg,#36271fef,#211815f5 62%); box-shadow:0 28px 70px #0007,inset 0 1px #ffffff12; }
+.setup-card h2 { font-size:clamp(1.8rem,4vw,2.45rem); }
+.setup-card > p:not(.eyebrow) { line-height:1.55; }
+.name-fields input,.join-room input,.account-form input { transition:border-color .18s ease,box-shadow .18s ease; }
+.name-fields input:focus,.join-room input:focus,.account-form input:focus { border-color:var(--gold); box-shadow:0 0 0 3px #f2bf5924; outline:none; }
+.mode-choice { position:relative; overflow:hidden; min-height:78px; border-color:#69513c; background:linear-gradient(145deg,#2d211b,#211814); transition:transform .18s ease,border-color .18s ease,background .18s ease; }
+.mode-choice:hover { transform:translateY(-2px); border-color:#b58a50; }
+.mode-choice.selected { border-color:var(--gold); box-shadow:inset 0 0 0 1px #f2bf5940,0 7px 20px #0003; }
+.character-grid { gap:12px; }
+.character-choice { min-height:82px; border-color:#66503b; background:linear-gradient(145deg,#2d211b,#211814); transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease; }
+.character-choice:hover:not(:disabled) { transform:translateY(-2px); border-color:#b58a50; box-shadow:0 10px 22px #0004; }
+.character-choice.selected { border-color:var(--gold); background:linear-gradient(145deg,#49341f,#2d2119); box-shadow:inset 0 0 0 1px #f2bf5966,0 8px 20px #0004; }
+.character-portrait { flex-basis:56px; width:56px; height:66px; border-radius:9px; box-shadow:0 5px 13px #0006; }
+.character-choice strong { font-size:.9rem; }
+.character-choice small { font-size:.73rem; }
+.random-character-row { padding:12px 14px; border:1px solid #624b37; border-radius:11px; background:#19131078; }
+.room-members { border-color:#755a3d; background:#17120fba; }
+.room-members li { align-items:center; min-height:42px; border:1px solid #ffffff09; background:linear-gradient(90deg,#30231c,#251b16); }
+.room-members li.empty { border-style:dashed; background:#1d1713; }
+.battle { gap:0; }
+.status-strip { border-color:#806245; background:linear-gradient(90deg,#1d1511ed,#2b1d16ed,#1d1511ed); box-shadow:0 8px 24px #0002; }
+.counter { color:#ffd16c; }
+.combatant { border-color:#73583e; background:linear-gradient(150deg,#34251d,#211814); box-shadow:0 8px 22px #0003,inset 0 1px #ffffff0a; }
+.combatant.active { border-color:var(--gold); box-shadow:0 0 0 1px #f2bf5944,0 8px 22px #0005; }
+.healthbar { overflow:hidden; border-radius:99px; background:#110e0c; }
+.healthbar span { border-radius:inherit; box-shadow:0 0 12px #f2766377; }
+.table-area { border-color:#755a3f; background:radial-gradient(ellipse at 50% 40%,#3d2a1e 0,#211712 70%); }
+.deck-stack,.discard-card { filter:drop-shadow(0 8px 10px #0008); }
+.action-banner { background:linear-gradient(90deg,#251914,#39251a,#251914); }
+.player-board { border-color:#755a3f; background:linear-gradient(150deg,#2c201a,#1d1612); }
+.card { border-color:#17120f; outline-color:#ffffff70; border-radius:11px; box-shadow:0 8px 0 #0b0806cc,0 12px 22px #0004; transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,filter .2s ease; }
+.card.playable:hover { transform:translateY(-9px) scale(1.025); box-shadow:0 15px 26px #0008; filter:brightness(1.08); }
+.card:disabled { filter:saturate(.78) brightness(.78); opacity:.82; }
+.card.sutha { --class:#94c878; --class-deep:#355c37; }
+.card.azzan { --class:#a183df; --class-deep:#443075; }
+.card.lia { --class:#f18472; --class-deep:#84352f; }
+.card.oriax { --class:#f0be54; --class-deep:#815514; }
+.card-effects span { text-shadow:0 1px 2px #22130d; }
+.card:disabled:focus-visible { outline-color:var(--gold); }
+.log-panel { border-color:#69513b; background:linear-gradient(150deg,#1e1713,#171210); }
+.dialog-heading h2,.winner-card h2,.target-card h2 { text-wrap:balance; }
+.target-card,.winner-card { border-color:#d4a64f; box-shadow:0 28px 90px #000b,inset 0 1px #ffffff10; }
+.target-options button { transition:background .16s ease,border-color .16s ease,transform .16s ease; }
+.target-options button:hover { transform:translateY(-1px); background:#493326; }
+@media(max-width:700px) {
+  .setup-card { margin:20px auto; padding:22px 16px; }
+  .topbar-actions .button { box-shadow:none; }
+  .character-grid { gap:8px; }
+  .character-choice { min-height:74px; }
+}
+.topbar-actions .feedback-toggle { min-width:42px; padding-inline:9px; font-size:1rem; }
+.topbar-actions .feedback-toggle[aria-pressed="true"] { border-color:#8a704c; background:#3b2c21; }
+.topbar-actions .feedback-toggle:disabled { opacity:.42; }
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.wizard .character-portrait { border-color:#e8b442; background-color:#b87814; }
+.rogue .character-portrait { border-color:#9671df; background-color:#6240a5; }
+.card.azzan { --class:#f0be54; --class-deep:#815514; }
+.card.oriax { --class:#a183df; --class-deep:#443075; }
+.reveal-card.wizard { background:linear-gradient(155deg,#e1ad42,#815514); }
+.reveal-card.rogue { background:linear-gradient(155deg,#a183df,#443075); }
+.wizard .character-portrait { background-blend-mode:soft-light; }
+.rogue .character-portrait { background-blend-mode:soft-light; }
+.card-art .card-character-face { background-color:var(--class); background-blend-mode:soft-light; }
+.character-portrait { background-size:cover!important; background-position:center!important; background-blend-mode:normal!important; }
+.barbarian .character-portrait { background-image:url('/assets/face-sutha.png'); }
+.wizard .character-portrait { background-image:url('/assets/face-azzan.png'); }
+.paladin .character-portrait { background-image:url('/assets/face-lia.png'); }
+.rogue .character-portrait { background-image:url('/assets/face-oriax.png'); }
+.card-art .card-character-face { inset:50% auto auto 50%; width:58px; height:58px; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #fff9; background-color:transparent; background-size:cover!important; background-position:center!important; background-blend-mode:normal!important; box-shadow:0 3px 10px #0009; }
+.card-art.sutha .card-character-face { background-image:url('/assets/face-sutha.png'); }
+.card-art.azzan .card-character-face { background-image:url('/assets/face-azzan.png'); }
+.card-art.lia .card-character-face { background-image:url('/assets/face-lia.png'); }
+.card-art.oriax .card-character-face { background-image:url('/assets/face-oriax.png'); }
+@media(max-width:700px){.card-art .card-character-face{width:34px;height:34px}}
+.reveal-art.has-face { position:relative; overflow:hidden; width:66px; height:66px; border:2px solid #fff9; background:#171210; }
+.reveal-character-face { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.reveal-effect-icon { position:absolute; right:-2px; bottom:-2px; z-index:1; display:grid; place-items:center; width:25px; height:25px; border:1px solid #fff9; border-radius:50%; background:#171210e8; color:#fff4df; font-size:1rem; }
+body:has(.battle:not(.hidden)) .reveal-art.has-face { width:66px; height:66px; }
+@media(max-width:700px){body:has(.battle:not(.hidden)) .reveal-art.has-face{width:44px;height:44px}}
