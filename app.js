@@ -97,7 +97,14 @@ function showAccountDialog(mode='register') {
   accountMode=mode; $('account-error').textContent=''; $('account-title').textContent=mode==='register' ? 'Create your account' : 'Sign in'; $('account-submit').textContent=mode==='register' ? 'Create account' : 'Sign in'; $('account-mode').textContent=mode==='register' ? 'Already have an account? Sign in' : 'Need an account? Create one'; $('account-password').autocomplete=mode==='register' ? 'new-password' : 'current-password'; $('account-dialog').showModal();
 }
 
-function shuffle(list) { return [...list].sort(() => Math.random() - .5); }
+function shuffle(list) {
+  const shuffled=[...list];
+  for(let index=shuffled.length-1;index>0;index--) {
+    const other=Math.floor(Math.random()*(index+1));
+    [shuffled[index],shuffled[other]]=[shuffled[other],shuffled[index]];
+  }
+  return shuffled;
+}
 function cardText(card) { const effects=[]; if(card.damage) effects.push(card.area ? `Deal ${card.damage} damage to ${card.areaSelf ? 'every player' : 'every opponent'}.` : `Deal ${card.damage} damage to one opponent.`); if(card.shield) effects.push(`Absorb ${card.shield} incoming damage.`); if(card.heal) effects.push(`Restore ${card.heal} HP.`); if(card.healPerOpponent) effects.push('Recover 1 HP for each opponent.'); if(card.draw) effects.push(`Draw ${card.draw} card${card.draw>1?'s':''}.`); if(card.again) effects.push(`Play ${card.again===1?'another card':`${card.again} more cards`}.`); if(card.swap) effects.push('Swap HP totals with an opponent.'); if(card.destroyDefense) effects.push('Destroy one of their defenses.'); if(card.destroyAllDefense) effects.push('Destroy every active defense.'); if(card.stealDefense) effects.push('Take one of their defenses.'); if(card.discardTarget) effects.push('Target discards a random card.'); if(card.discardHandDraw) effects.push(`Each player discards their hand and draws ${card.discardHandDraw}.`); if(card.reclaim) effects.push('Choose a discarded card and return it to your hand.'); if(card.protected) effects.push('Ignore opponents’ card effects until your next turn.'); if(card.stealTop) effects.push('Take the top card of an opponent’s deck and play it this turn.'); return effects.join(' '); }
 function makeDeck(character) { return shuffle(character.cards.flatMap((template) => Array.from({length:template.count},(_,index) => ({ ...template, owner:character.id, role:character.role, text:cardText(template), id:`${Date.now()}-${template.name}-${index}-${Math.random()}` })))); }
 function makePlayer(character, isHuman = false) { return { name:character.name, role:character.role, character, isHuman, hp:10, deck:makeDeck(character), discard:[], hand:[], defenses:[], alive:true, protected:false, stats:{ cardsPlayed:0, damageDealt:0, damageTaken:0, damageBlocked:0, healing:0, shieldsRaised:0 } }; }
@@ -118,6 +125,7 @@ function refillLowHand(player) {
   if(drawn) log(`${player.name} ${hadOne?'has one card left':'has an empty hand'} and automatically draws ${drawn} card${drawn===1?'':'s'}.`);
 }
 function setStatus(text) { els.status.textContent = text; }
+function updateHouseRuleLabel() { $('house-rules-state').textContent=$('house-rules-toggle').checked ? 'ON' : 'OFF'; }
 function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
@@ -139,6 +147,7 @@ function startGame() {
   updateBattleControls();
   els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML = '';
   log(`A ${roster.length}-player battle begins. ${game.players[0].name} goes first as ${game.players[0].character.name}.`);
+  log(houseRules ? 'House rules ON: no automatic draw at the start of a turn.' : 'House rules OFF: players draw 1 card at the start of a turn.');
   beginTurn();
   if(gameMode==='online') socket.emit('start-online-game',{code:onlineRoom.code,state:game},(result)=>{ if(!result.ok) { setStatus(result.error); } });
 }
@@ -148,7 +157,7 @@ function beginTurn() {
   if (!player.alive) return nextTurn();
   startTurnTimer();
   if (player.protected) { player.protected=false; log(`${player.name}'s Clever Disguise fades.`); }
-  if(!game.rules.houseRules && game.rules.turnDraw) { draw(player,1); log(`${player.name} draws a card.`); }
+  if(game.rules.houseRules!==true) { draw(player,1); log(`${player.name} draws a card.`); }
   refillLowHand(player);
   game.required = 1; game.started = true;
   if(canControlTurn()) { setStatus(`${player.name}'s turn.`); els.message.textContent = `${player.name}, choose a card and make your move.`; render(); }
@@ -373,6 +382,7 @@ document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListe
 $('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:selectedCharacter,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:selectedCharacter},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('start-button').onclick=startGame; $('lobby-start-button').onclick=startGame; $('restart-button').onclick=()=>{ if(gameMode==='online') return; stopCurrentGame(); }; $('leave-online-button').onclick=leaveOnlineMatch; $('leave-room-button').onclick=leaveOnlineMatch; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
+$('house-rules-toggle').addEventListener('change',updateHouseRuleLabel);
 $('card-library-button').onclick=()=>{ renderCardLibrary(); $('card-library-dialog').showModal(); }; $('close-card-library').onclick=()=>$('card-library-dialog').close();
 $('account-button').onclick=()=>{ if(currentAccount) { updateAccountUi(); $('account-dialog').showModal(); } else showAccountDialog('register'); };
 $('close-account').onclick=()=>$('account-dialog').close();
@@ -380,4 +390,5 @@ $('account-mode').onclick=()=>showAccountDialog(accountMode==='register' ? 'logi
 $('account-form').onsubmit=async (event)=>{ event.preventDefault(); const username=$('account-username').value.trim(); const password=$('account-password').value; const error=$('account-error'); error.textContent=''; try { const response=await fetch(`/api/auth/${accountMode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}); const result=await response.json(); if(!response.ok) throw new Error(result.error || 'Unable to sign in.'); currentAccount=result.user; $('account-password').value=''; $('account-dialog').close(); updateAccountUi(); } catch (issue) { error.textContent=issue.message; } };
 $('logout-button').onclick=async ()=>{ await fetch('/api/auth/logout',{method:'POST'}); currentAccount=null; $('account-dialog').close(); updateAccountUi(); };
 renderNameFields();
+updateHouseRuleLabel();
 loadAccount();
