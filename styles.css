@@ -179,6 +179,12 @@ button:focus-visible,input:focus-visible { outline:3px solid #ffe093; outline-of
 .reveal-art.has-face { position:relative; overflow:hidden; width:66px; height:66px; border:2px solid #fff9; background:#171210; }
 .card-art .card-illustration { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .card-art:has(.card-illustration) { isolation:isolate; }
+.played-card-stage { min-width:min(100%,220px); border:2px dashed transparent; border-radius:12px; transition:border-color .16s,background-color .16s,transform .16s; }
+.played-card-stage.drop-ready { border-color:#f2bf59aa; background:#f2bf5910; }
+.played-card-stage.drag-over { border-color:#ffe28b; background:#f2bf5922; transform:scale(1.02); }
+.played-card-stage.drop-ready:not(:has(.reveal-card))::after { content:'Drop a card here to play'; color:#ffe28b; font-size:.78rem; font-weight:800; }
+.card[draggable="true"] { cursor:grab; }
+.card[draggable="true"]:active { cursor:grabbing; }
 .reveal-character-face { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .reveal-effect-icon { position:absolute; right:-2px; bottom:-2px; z-index:1; display:grid; place-items:center; width:25px; height:25px; border:1px solid #fff9; border-radius:50%; background:#171210e8; color:#fff4df; font-size:1rem; }
 body:has(.battle:not(.hidden)) .reveal-art.has-face { width:66px; height:66px; }

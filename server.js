@@ -39,7 +39,11 @@ function readSession(request) {
   try { const session = JSON.parse(Buffer.from(payload, 'base64url').toString()); return session.expires > Date.now() ? session : null; } catch { return null; }
 }
 function profileFor(user) {
-  if (!user.profile) user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [] };
+  if (!user.profile || typeof user.profile !== 'object') user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [] };
+  user.profile.matches = Number.isFinite(user.profile.matches) ? user.profile.matches : 0;
+  user.profile.wins = Number.isFinite(user.profile.wins) ? user.profile.wins : 0;
+  if (!user.profile.characters || typeof user.profile.characters !== 'object') user.profile.characters = {};
+  if (!Array.isArray(user.profile.matchIds)) user.profile.matchIds = [];
   return user.profile;
 }
 
@@ -47,8 +51,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 app.get('/api/auth/me', (request, response) => {
   const session = readSession(request);
-  const user = session && users().find((item) => item.username.toLowerCase() === session.username.toLowerCase());
-  response.json({ user: user ? { username: user.username, profile: profileFor(user) } : null });
+  const list = users();
+  const user = session && list.find((item) => item.username.toLowerCase() === session.username.toLowerCase());
+  if (user) { const needsMigration = !user.profile; profileFor(user); if (needsMigration) saveUsers(list); }
+  response.json({ user: user ? { username: user.username, profile: user.profile } : null });
 });
 app.post('/api/profile/match', (request, response) => {
   const session = readSession(request);
@@ -75,18 +81,23 @@ app.post('/api/auth/register', async (request, response) => {
   if (password.length < 8) return response.status(400).json({ error: 'Use a password with at least 8 characters.' });
   const list = users();
   if (list.some((user) => user.username.toLowerCase() === username.toLowerCase())) return response.status(409).json({ error: 'That username is already in use.' });
-  list.push({ username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString() });
+  const user = { username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), profile: { matches: 0, wins: 0, characters: {}, matchIds: [] } };
+  list.push(user);
   saveUsers(list);
   response.setHeader('Set-Cookie', `mayhem_session=${signSession(username)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
-  response.status(201).json({ user: { username } });
+  response.status(201).json({ user: { username, profile: profileFor(user) } });
 });
 app.post('/api/auth/login', async (request, response) => {
   const username = String(request.body?.username || '').trim();
   const password = String(request.body?.password || '');
-  const user = users().find((item) => item.username.toLowerCase() === username.toLowerCase());
+  const list = users();
+  const user = list.find((item) => item.username.toLowerCase() === username.toLowerCase());
   if (!user || !(await verifyPassword(password, user.passwordHash))) return response.status(401).json({ error: 'Username or password is incorrect.' });
+  const needsMigration = !user.profile;
+  profileFor(user);
+  if (needsMigration) saveUsers(list);
   response.setHeader('Set-Cookie', `mayhem_session=${signSession(user.username)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
-  response.json({ user: { username: user.username } });
+  response.json({ user: { username: user.username, profile: user.profile } });
 });
 app.post('/api/auth/logout', (_request, response) => {
   response.setHeader('Set-Cookie', 'mayhem_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
