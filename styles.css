@@ -57,6 +57,33 @@ body:has(.battle:not(.hidden)) .hand{height:auto!important;min-height:0;overflow
 .card-art { position:relative; overflow:hidden; background:#211914; }.card-art .card-character-face { position:absolute; inset:0; display:block; background-image:url('/assets/character-roster.jpg'); background-size:480px 640px; background-repeat:no-repeat; opacity:.95; }.card-art.sutha .card-character-face { background-position:-58px -345px; }.card-art.azzan .card-character-face { background-position:-270px -345px; }.card-art.lia .card-character-face { background-position:-270px -68px; }.card-art.oriax .card-character-face { background-position:-58px -68px; }.card-art .card-effect-icon { position:absolute; z-index:1; right:5px; bottom:4px; width:25px; height:25px; display:grid; place-items:center; border:1px solid #fff9; border-radius:50%; background:#16110de8; color:#fff5d8; font-size:1rem; text-shadow:0 1px 2px #000; }
 .card-art { height:60px; }.card-art.sutha .card-character-face { background-position:-58px -360px; }.card-art.azzan .card-character-face { background-position:-270px -360px; }.card-art.lia .card-character-face { background-position:-270px -105px; }.card-art.oriax .card-character-face { background-position:-58px -105px; }
 @media(max-width:700px){body:has(.battle:not(.hidden)) .card-art{height:36px}}
+.card { display:flex; flex-direction:column; align-items:stretch; gap:0; border-radius:10px; }
+.card-topline { min-height:24px; align-items:center; padding:3px 7px; }
+.card-symbols { font-size:.95rem; letter-spacing:.03em; white-space:nowrap; }
+.card-faction { display:grid; justify-items:end; gap:1px; line-height:1; }
+.card-faction b { font-size:.47rem; }
+.card-faction small { color:#fff4df; font-size:.4rem; opacity:.86; }
+.card-art { flex:0 0 58px; height:58px; margin:4px 7px; border-width:1px; }
+.card-nameplate { min-height:30px; margin:0 5px; padding:4px 5px; border:1px solid #ffffff32; border-radius:5px; background:#19130fe8; }
+.card h3 { font-size:.83rem; }
+.card-text-panel { flex:1; min-height:0; max-height:78px; overflow:auto; margin:5px 6px 7px; padding:4px 6px; border:1px solid #fff9; border-radius:5px; background:#f5ead6; color:#30231a; }
+.card-power-label { display:block; margin-bottom:3px; color:#7c4f16; font-size:.47rem; font-weight:1000; letter-spacing:.08em; }
+.card .card-effects { gap:0; padding:0; }
+.card .card-effects span { min-height:17px; border-bottom-color:#2f241a20; color:#34261c; font-size:.55rem; line-height:1.15; font-weight:750; text-shadow:none; }
+.card .card-effects b { width:15px; color:#79541e; font-size:.72rem; }
+@media(max-width:700px) {
+  .card-topline { min-height:18px; padding:2px 4px; }
+  .card-symbols { font-size:.65rem; }
+  .card-faction b { font-size:.35rem; }
+  .card-faction small { font-size:.3rem; }
+  .card-art { flex-basis:34px; height:34px; margin:3px 4px; }
+  .card-nameplate { min-height:23px; margin-inline:3px; padding:2px; }
+  .card h3 { font-size:.62rem; }
+  .card-text-panel { max-height:59px; margin:3px 4px 5px; padding:3px; }
+  .card-power-label { font-size:.34rem; }
+  .card .card-effects span { min-height:12px; font-size:.4rem; }
+  .card .card-effects b { width:10px; font-size:.47rem; }
+}
 
 /* Arena polish: stronger hierarchy, clearer states, and a consistent finish. */
 :root { --ink:#fff4df; --muted:#c3b5a0; --paper:#211a16; --paper-hi:#34271f; --line:#70583f; --gold:#f2bf59; --red:#f27663; --green:#8dc781; --shadow:0 22px 65px #0009; }
@@ -146,7 +173,12 @@ button:focus-visible,input:focus-visible { outline:3px solid #ffe093; outline-of
 .card-art.lia .card-character-face { background-image:url('/assets/face-lia.png'); }
 .card-art.oriax .card-character-face { background-image:url('/assets/face-oriax.png'); }
 @media(max-width:700px){.card-art .card-character-face{width:34px;height:34px}}
+.symbol-legend ul { display:grid; gap:8px; margin:10px 0 0; padding:0; list-style:none; }
+.symbol-legend li { padding:8px 10px; border:1px solid #ffffff12; border-radius:8px; background:#19131066; color:var(--muted); font-size:.86rem; line-height:1.4; }
+.symbol-legend li strong { color:var(--ink); }
 .reveal-art.has-face { position:relative; overflow:hidden; width:66px; height:66px; border:2px solid #fff9; background:#171210; }
+.card-art .card-illustration { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.card-art:has(.card-illustration) { isolation:isolate; }
 .reveal-character-face { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .reveal-effect-icon { position:absolute; right:-2px; bottom:-2px; z-index:1; display:grid; place-items:center; width:25px; height:25px; border:1px solid #fff9; border-radius:50%; background:#171210e8; color:#fff4df; font-size:1rem; }
 body:has(.battle:not(.hidden)) .reveal-art.has-face { width:66px; height:66px; }
