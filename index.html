@@ -75,7 +75,7 @@
         </div>
         <fieldset class="rule-toggles">
           <legend>House rules</legend>
-          <label class="toggle-row"><span><strong>Use house rules</strong><small>Three-card opening, stack damage during extra moves, and draw 2 cards when you have 1 card left.</small></span><input id="house-rules-toggle" type="checkbox" role="switch" checked /><i></i></label>
+          <label class="toggle-row"><span><strong>Use house rules</strong><small>Start with 3 cards. No turn draw: draw only from a card effect or draw 2 automatically when you have 1 card left.</small></span><input id="house-rules-toggle" type="checkbox" role="switch" checked /><i></i></label>
         </fieldset>
         <button class="button primary" id="start-button" type="button">Begin battle</button>
       </section>
@@ -108,7 +108,7 @@
             <strong>Draw pile</strong>
             <small id="deck-count">0 cards</small>
           </div>
-          <div class="battle-message" id="battle-message">The arena is ready.</div>
+          <div class="table-center"><div class="played-card-stage" id="played-card-stage" aria-live="polite"></div><div class="battle-message" id="battle-message">The arena is ready.</div></div>
           <div class="deck-zone discard-zone">
             <div class="discard-card" id="discard-preview" aria-hidden="true">?</div>
             <strong>Discard</strong>
@@ -143,7 +143,7 @@
       <div class="dialog-heading"><div><p class="eyebrow">Rules reference</p><h2>How to battle</h2></div><button class="icon-button" id="close-rules" aria-label="Close rules">×</button></div>
       <div class="rules-grid">
         <article><h3>Goal</h3><p>Be the last player with hit points remaining. Each character begins at 10 HP.</p></article>
-        <article><h3>Turn</h3><p>Draw one card, then play at least one. A lightning symbol adds another required card play. When your hand becomes empty, draw two cards.</p></article>
+        <article><h3>Turn</h3><p>Each player starts with 3 cards when house rules are on. There is no automatic draw at the start of a turn. Draw only when a card tells you to, or automatically draw 2 when your hand reaches 1 card. A lightning symbol adds another required card play.</p></article>
         <article><h3>Attack ⚔</h3><p>Choose an opponent. Damage removes active defense first, then their hit points.</p></article>
         <article><h3>Defense 🛡</h3><p>Defense stays on your board until its shields are gone. It absorbs damage before your HP.</p></article>
         <article><h3>Other symbols</h3><p>♥ restores HP up to 10. ▣ draws cards immediately. Every symbol on a card resolves: ⚔ + 🛡 deals damage, then stays as a defense. Non-defense cards go to your discard pile.</p></article>
@@ -172,7 +172,8 @@
         <button class="button primary" id="account-submit" type="submit">Create account</button>
       </form>
       <button class="link-button" id="account-mode" type="button">Already have an account? Sign in</button>
-      <button class="link-button hidden" id="logout-button" type="button">Sign out</button>
+      <section class="profile-summary hidden" id="profile-summary" aria-live="polite"></section>
+      <button class="link-button hidden" id="logout-button" type="button">Log out</button>
     </dialog>
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>

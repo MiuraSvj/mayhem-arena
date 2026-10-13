@@ -38,12 +38,35 @@ function readSession(request) {
   if (!payload || !signature || signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   try { const session = JSON.parse(Buffer.from(payload, 'base64url').toString()); return session.expires > Date.now() ? session : null; } catch { return null; }
 }
+function profileFor(user) {
+  if (!user.profile) user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [] };
+  return user.profile;
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 app.get('/api/auth/me', (request, response) => {
   const session = readSession(request);
-  response.json({ user: session ? { username: session.username } : null });
+  const user = session && users().find((item) => item.username.toLowerCase() === session.username.toLowerCase());
+  response.json({ user: user ? { username: user.username, profile: profileFor(user) } : null });
+});
+app.post('/api/profile/match', (request, response) => {
+  const session = readSession(request);
+  const list = users();
+  const user = session && list.find((item) => item.username.toLowerCase() === session.username.toLowerCase());
+  if (!user) return response.status(401).json({ error: 'Sign in to save match stats.' });
+  const { matchId, won, character } = request.body || {};
+  if (typeof matchId !== 'string' || !/^[A-Za-z0-9-]{8,80}$/.test(matchId) || typeof won !== 'boolean' || typeof character !== 'string') return response.status(400).json({ error: 'Invalid match stats.' });
+  const profile = profileFor(user);
+  if (!profile.matchIds.includes(matchId)) {
+    profile.matches++;
+    if (won) profile.wins++;
+    profile.characters[character] = (profile.characters[character] || 0) + 1;
+    profile.matchIds.push(matchId);
+    profile.matchIds = profile.matchIds.slice(-1000);
+    saveUsers(list);
+  }
+  response.json({ profile });
 });
 app.post('/api/auth/register', async (request, response) => {
   const username = String(request.body?.username || '').trim();

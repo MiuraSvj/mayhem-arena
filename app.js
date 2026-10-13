@@ -30,6 +30,8 @@ let turnDeadline = 0;
 let timerInterval = null;
 let lastHitPlayer = null;
 let lastAction = null;
+let seenPlayedCardId = null;
+let profileMatchSaved = false;
 
 function stopTurnTimer() { if(timerInterval) window.clearInterval(timerInterval); timerInterval=null; }
 function refreshTurnTimer() {
@@ -54,7 +56,20 @@ function updateAccountUi() {
   const button=$('account-button');
   button.textContent=currentAccount ? `Signed in: ${currentAccount.username}` : 'Create account / Sign in';
   $('logout-button').classList.toggle('hidden',!currentAccount);
+  $('account-form').classList.toggle('hidden',Boolean(currentAccount));
+  $('account-mode').classList.toggle('hidden',Boolean(currentAccount));
+  $('account-title').textContent=currentAccount ? 'Player profile' : (accountMode==='register' ? 'Create your account' : 'Sign in');
+  renderProfile();
   if(currentAccount) renderNameFields();
+}
+function renderProfile() {
+  const holder=$('profile-summary');
+  if(!currentAccount) { holder.classList.add('hidden'); holder.innerHTML=''; return; }
+  const profile=currentAccount.profile || {matches:0,wins:0,characters:{}};
+  const mostPlayed=Object.entries(profile.characters || {}).sort((a,b)=>b[1]-a[1])[0];
+  const character=mostPlayed ? characters.find((item)=>item.id===mostPlayed[0]) : null;
+  holder.classList.remove('hidden');
+  holder.innerHTML=`<h3>${currentAccount.username}'s stats</h3><div><span>Wins</span><strong>${profile.wins || 0}</strong></div><div><span>Matches played</span><strong>${profile.matches || 0}</strong></div><div><span>Win rate</span><strong>${profile.matches ? Math.round(profile.wins/profile.matches*100) : 0}%</strong></div><div><span>Most played</span><strong>${character ? character.name : '—'}</strong></div>`;
 }
 async function loadAccount() {
   try { const response=await fetch('/api/auth/me'); const result=await response.json(); currentAccount=result.user; updateAccountUi(); } catch { updateAccountUi(); }
@@ -81,15 +96,16 @@ function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? gam
 function syncOnlineGame() { if(gameMode==='online' && onlineRoom) socket.emit('sync-online-game',{code:onlineRoom.code,state:game}); }
 function startGame() {
   lastAction = null; lastHitPlayer = null;
+  seenPlayedCardId=null; profileMatchSaved=false;
   const houseRules = $('house-rules-toggle').checked;
-  const rules = { openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules };
+  const rules = { openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules, turnDraw: !houseRules };
   const chosen = characters.find((character)=>character.id===selectedCharacter);
   const opponents = shuffle(characters.filter((character)=>character.id!==selectedCharacter)).slice(0,selectedPlayers-1);
   const names=[...document.querySelectorAll('#name-fields input')].map((input,index)=>input.value.trim() || `Player ${index+1}`);
   if(gameMode==='online' && (!onlineRoom || onlinePlayers.length<2)) { setStatus('Create or join an online room before beginning.'); return; }
   if(gameMode==='online' && onlineRoom.hostId!==socket.id) { setStatus('Only the room host can begin the battle.'); return; }
   const roster=gameMode==='online' ? onlinePlayers : [{name:names[0],character:chosen.id},...opponents.map((character)=>({name:character.name,character:character.id}))];
-  game = { players:roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name })), current:0, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
+  game = { matchId:crypto.randomUUID(), players:roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name })), current:0, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
   if(gameMode==='online') localPlayerIndex=onlinePlayers.findIndex((player)=>player.id===socket.id);
   game.players.forEach((player) => draw(player,rules.openingHand ? 3 : 2));
   els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML = '';
@@ -103,8 +119,8 @@ function beginTurn() {
   if (!player.alive) return nextTurn();
   startTurnTimer();
   if (player.protected) { player.protected=false; log(`${player.name}'s Clever Disguise fades.`); }
-  draw(player,1); game.required = 1; game.started = true;
-  log(`${player.name} draws a card.`);
+  if(game.rules.turnDraw) { draw(player,1); log(`${player.name} draws a card.`); }
+  game.required = 1; game.started = true;
   if(canControlTurn()) { setStatus(`${player.name}'s turn.`); els.message.textContent = `${player.name}, choose a card and make your move.`; render(); }
   else if(gameMode==='ai') { setStatus(`${player.name} is deciding…`); els.message.textContent = `${player.name} enters the arena.`; render(); window.setTimeout(runAi,900); }
   else { setStatus(`${player.name}'s turn. Waiting for them to play.`); els.message.textContent='Your opponent is choosing a card.'; render(); }
@@ -127,6 +143,12 @@ function showResults(winner) {
   els.winnerTitle.textContent = winner?.isHuman ? 'Victory!' : `${winner?.name || 'Nobody'} wins`;
   els.winnerText.textContent = winner?.isHuman ? 'You are the last fighter standing.' : 'The arena falls silent. Start another battle and claim the crown.';
   els.winnerStats.innerHTML = game.players.slice().sort((left,right)=>Number(right===winner)-Number(left===winner) || right.stats.damageDealt-left.stats.damageDealt).map((player)=>`<article class="result-row ${player===winner?'winner':''}"><div><strong>${player===winner?'♛ ':''}${player.name}</strong><small>${player.role} · ${player.alive ? `${player.hp} HP left` : 'Knocked out'}</small></div><dl><div><dt>Damage</dt><dd>${player.stats.damageDealt}</dd></div><div><dt>Taken</dt><dd>${player.stats.damageTaken}</dd></div><div><dt>Blocked</dt><dd>${player.stats.damageBlocked}</dd></div><div><dt>Healed</dt><dd>${player.stats.healing}</dd></div><div><dt>Shields</dt><dd>${player.stats.shieldsRaised}</dd></div><div><dt>Cards</dt><dd>${player.stats.cardsPlayed}</dd></div></dl></article>`).join('');
+  if(currentAccount && !profileMatchSaved) {
+    profileMatchSaved=true;
+    const local=gameMode==='online' ? game.players[localPlayerIndex] : game.players[0];
+    fetch('/api/profile/match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matchId:game.matchId,won:local===winner,character:local.character.id})})
+      .then((response)=>response.ok ? response.json() : null).then((result)=>{ if(result && currentAccount) { currentAccount.profile=result.profile; renderProfile(); } }).catch(()=>{});
+  }
 }
 function damage(target, amount, attacker) {
   if (target.protected && target !== attacker) { log(`${target.name}'s disguise ignores ${attacker.name}'s card effect.`); return; }
@@ -154,7 +176,10 @@ function resolvePendingDamage() {
 function effectSymbols(card) { const result=[]; if(card.damage) result.push(`${card.area?'☄':'⚔'} ${card.damage}${card.areaSelf?' all':''}`); if(card.shield) result.push(`🛡 ${card.shield}`); if(card.heal) result.push(`♥ ${card.heal}`); if(card.healPerOpponent) result.push('♥ × foes'); if(card.draw) result.push(`▣ ${card.draw}`); if(card.again) result.push(`⚡ ${card.again}`); if(card.swap) result.push('⇄ HP'); if(card.destroyDefense) result.push('✦ break'); if(card.destroyAllDefense) result.push('✦ all break'); if(card.stealDefense) result.push('⇣ shield'); if(card.discardTarget) result.push('✕ discard'); if(card.discardHandDraw) result.push(`↻ ${card.discardHandDraw}`); if(card.reclaim) result.push('↶ reclaim'); if(card.protected) result.push('◉ ward'); if(card.stealTop) result.push('⇣ card'); return result.join('  '); }
 function effectRows(card) { const rows=[]; if(card.damage) rows.push(`<span><b>${card.area?'☄':'⚔'}</b>${card.area ? `Deal ${card.damage} to ${card.areaSelf?'every player':'each opponent'}` : `Deal ${card.damage} damage`}</span>`); if(card.shield) rows.push(`<span><b>🛡</b>Block ${card.shield} damage</span>`); if(card.heal) rows.push(`<span><b>♥</b>Recover ${card.heal} HP</span>`); if(card.healPerOpponent) rows.push('<span><b>♥</b>Recover 1 HP per opponent</span>'); if(card.draw) rows.push(`<span><b>▣</b>Draw ${card.draw} card${card.draw>1?'s':''}</span>`); if(card.again) rows.push(`<span><b>⚡</b>Play ${card.again===1?'an extra card':`${card.again} extra cards`}</span>`); if(card.swap) rows.push('<span class="mighty"><b>✦</b>Swap HP with an opponent</span>'); if(card.destroyDefense) rows.push('<span class="mighty"><b>✦</b>Destroy an active defense</span>'); if(card.destroyAllDefense) rows.push('<span class="mighty"><b>✦</b>Destroy every defense</span>'); if(card.stealDefense) rows.push('<span class="mighty"><b>⇣</b>Take an active defense</span>'); if(card.discardTarget) rows.push('<span class="mighty"><b>✕</b>Target discards a card</span>'); if(card.discardHandDraw) rows.push(`<span class="mighty"><b>↻</b>All discard, then draw ${card.discardHandDraw}</span>`); if(card.reclaim) rows.push('<span class="mighty"><b>↶</b>Choose a discard to return</span>'); if(card.protected) rows.push('<span class="mighty"><b>◉</b>Ignore effects until next turn</span>'); if(card.stealTop) rows.push('<span class="mighty"><b>⇣</b>Take and play their top card</span>'); return rows.join(''); }
 function playCard(actor, card, target=null, reclaimChoice=null) {
+  if(Date.now() < (game.revealUntil || 0)) return;
   const clicked=document.querySelector(`.card[data-card-id="${card.id}"]`); if(clicked) clicked.classList.add('played');
+  game.lastPlayedCard={id:`${game.matchId}-${actor.stats.cardsPlayed+1}-${Date.now()}`,name:card.name,owner:actor.name,role:card.role,type:card.type,symbol:effectSymbols(card),text:card.text,art:card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'};
+  game.revealUntil=Date.now()+1700;
   actor.stats.cardsPlayed++;
   if(card.damage) lastAction={actor,card,target,area:card.area};
   else if(target && (card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop)) lastAction={actor,card,target,area:false};
@@ -212,15 +237,14 @@ function playCard(actor, card, target=null, reclaimChoice=null) {
     if (stolen) { actor.hand.push(stolen); game.required=Math.max(1,game.required); log(`${actor.name} takes ${stolen.name} from ${target.name}'s deck and may play it this turn.`); }
     else log(`${target.name}'s deck has no card to steal.`);
   }
-  const refillAt = game.rules.oneCardRefill ? 1 : 0;
-  if (actor.hand.length<=refillAt && actor.alive) { draw(actor,2); log(`${actor.name} reaches ${refillAt === 1 ? 'one card' : 'an empty hand'} and draws 2 cards.`); }
+  if (game.rules.oneCardRefill && actor.hand.length<=1 && actor.alive) { const hadOne=actor.hand.length===1; draw(actor,2); log(`${actor.name} ${hadOne?'has one card left':'has an empty hand'} and automatically draws 2 cards.`); }
   if (game.rules.stackDamage && game.required===0 && game.pendingDamage.length) resolvePendingDamage();
   if (checkWinner()) { render(); syncOnlineGame(); return; }
   render();
   syncOnlineGame();
   if (actor.isHuman) {
-    if (game.required === 0) { setStatus('Your turn is complete.'); els.message.textContent='Passing to the next fighter…'; window.setTimeout(nextTurn,650); }
-    else { setStatus(`Play ${game.required} more card${game.required>1?'s':''}.`); els.message.textContent='Lightning demands another play.'; }
+    if (game.required === 0) { setStatus('Your turn is complete.'); els.message.textContent='Showing the played card…'; window.setTimeout(nextTurn,1750); }
+    else { setStatus(`Play ${game.required} more card${game.required>1?'s':''}.`); els.message.textContent='Showing the played card…'; }
   }
 }
 function chooseTarget(card) {
@@ -237,7 +261,7 @@ function chooseReclaim(card) {
   choices.forEach((discarded)=>{ const button=document.createElement('button'); button.type='button'; button.textContent=discarded.name; button.onclick=()=>{ els.target.classList.add('hidden'); playCard(playerAtTurn(),pendingCard,null,discarded); pendingCard=null; }; els.targetOptions.append(button); });
   els.target.classList.remove('hidden');
 }
-function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0) return; if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
+function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0 || Date.now()<(game.revealUntil||0)) return; if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
 function runAi() {
   if(game.finished) return; const actor=playerAtTurn(); if(actor.isHuman) return;
   const enemies=activePlayers().filter((player)=>player!==actor);
@@ -250,8 +274,8 @@ function runAi() {
   const card=pick(); if(!card) { draw(actor,2); game.required=0; return window.setTimeout(nextTurn,450); }
   const target=(card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop ? enemies.sort((a,b)=>a.hp-b.hp)[0] : null;
   els.message.textContent=`${actor.name} plays ${card.name}.`; playCard(actor,card,target);
-  if(!game.finished && game.required>0) window.setTimeout(runAi,600);
-  else if(!game.finished) window.setTimeout(nextTurn,750);
+  if(!game.finished && game.required>0) window.setTimeout(runAi,1750);
+  else if(!game.finished) window.setTimeout(nextTurn,1750);
 }
 function render() {
   if(!game) return;
@@ -265,7 +289,21 @@ function render() {
   const banner=$('action-banner');
   if(lastAction) { const targetText=lastAction.area ? (lastAction.card.areaSelf ? 'every player' : 'all opponents') : (lastAction.target ? lastAction.target.name : 'their board'); banner.innerHTML=`<span>${lastAction.card.damage?'⚔':'✦'}</span><strong>${lastAction.actor.name} used ${lastAction.card.name}${lastAction.card.damage || lastAction.target ? ` → ${targetText}` : ''}</strong>`; banner.classList.remove('attack'); void banner.offsetWidth; banner.classList.add('attack'); }
   else banner.innerHTML='<span>⚔</span><strong>Waiting for the next move</strong>';
-  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished; button.innerHTML=`<div class="card-topline"><span>${card.role}</span><span>${card.type}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-art" aria-hidden="true"><span>${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-effects">${effectRows(card)}</div><div class="card-footer"><span>${card.owner === 'sutha' ? 'SKULLCRUSHER' : card.owner === 'azzan' ? 'MYSTIC' : card.owner === 'lia' ? 'RADIANT' : 'CLEVER'}</span><b>${effectSymbols(card)}</b></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+  const stage=$('played-card-stage'), played=game.lastPlayedCard;
+  if(played) {
+    if(!stage.querySelector(`[data-reveal-id="${CSS.escape(played.id)}"]`)) {
+      stage.innerHTML='';
+      const reveal=document.createElement('article'); reveal.className=`reveal-card ${played.role.toLowerCase()}`; reveal.dataset.revealId=played.id;
+      const topline=document.createElement('div'); topline.className='reveal-topline'; topline.textContent=`${played.owner} · ${played.role}`;
+      const title=document.createElement('strong'); title.textContent=played.name;
+      const art=document.createElement('span'); art.className='reveal-art'; art.textContent=played.art;
+      const details=document.createElement('small'); details.textContent=played.text || played.symbol;
+      reveal.append(topline,title,art,details); stage.append(reveal);
+    }
+    if(seenPlayedCardId!==played.id) { seenPlayedCardId=played.id; stage.classList.remove('active'); void stage.offsetWidth; stage.classList.add('active'); window.setTimeout(()=>{ if(seenPlayedCardId===played.id) stage.classList.remove('active'); },1900); }
+  } else stage.innerHTML='';
+  els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished || Date.now()<(game.revealUntil||0); button.innerHTML=`<div class="card-topline"><span>${card.role}</span><span>${card.type}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-art" aria-hidden="true"><span>${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-effects">${effectRows(card)}</div><div class="card-footer"><span>${card.owner === 'sutha' ? 'SKULLCRUSHER' : card.owner === 'azzan' ? 'MYSTIC' : card.owner === 'lia' ? 'RADIANT' : 'CLEVER'}</span><b>${effectSymbols(card)}</b></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+  if(played && Date.now()<(game.revealUntil||0) && canControlTurn() && game.required>0) window.setTimeout(()=>{ if(game && !game.finished) render(); },Math.max(0,game.revealUntil-Date.now()));
 }
 function renderCardLibrary() {
   $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((card) => `<article class="library-card"><div><strong>${card.name}</strong>${card.mighty ? '<em>Mighty Power</em>' : ''}</div><span class="library-count">×${card.count}</span><p>${cardText(card)}</p><small>${effectSymbols(card)}</small></article>`).join('')}</div></section>`).join('');
@@ -286,14 +324,14 @@ function connectOnline() {
   if(socket) return;
   socket=io();
   socket.on('lobby-state',renderOnlineLobby);
-  socket.on('online-game-state',({state,players})=>{ game=state; onlinePlayers=players; localPlayerIndex=players.findIndex((player)=>player.id===socket.id); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
+  socket.on('online-game-state',({state,players})=>{ if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; } game=state; onlinePlayers=players; localPlayerIndex=players.findIndex((player)=>player.id===socket.id); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
 }
 document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); const online=gameMode==='online'; $('online-lobby').classList.toggle('hidden',!online); $('battle-size-heading').textContent=online?'Choose online room size':'Choose the battle size'; if(online) connectOnline(); else { document.querySelectorAll('.character-choice,.player-count').forEach((control)=>{ control.disabled=false; control.title=''; }); } }));
 $('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:selectedCharacter,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:selectedCharacter},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; }); };
 $('start-button').onclick=startGame; $('lobby-start-button').onclick=startGame; $('restart-button').onclick=()=>{ els.winner.classList.add('hidden'); els.battle.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.setup.classList.remove('hidden'); setStatus('Choose a character and game size to begin.'); els.actions.textContent='Cards to play: —'; }; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
 $('card-library-button').onclick=()=>{ renderCardLibrary(); $('card-library-dialog').showModal(); }; $('close-card-library').onclick=()=>$('card-library-dialog').close();
-$('account-button').onclick=()=>showAccountDialog(currentAccount ? 'login' : 'register');
+$('account-button').onclick=()=>{ if(currentAccount) { updateAccountUi(); $('account-dialog').showModal(); } else showAccountDialog('register'); };
 $('close-account').onclick=()=>$('account-dialog').close();
 $('account-mode').onclick=()=>showAccountDialog(accountMode==='register' ? 'login' : 'register');
 $('account-form').onsubmit=async (event)=>{ event.preventDefault(); const username=$('account-username').value.trim(); const password=$('account-password').value; const error=$('account-error'); error.textContent=''; try { const response=await fetch(`/api/auth/${accountMode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}); const result=await response.json(); if(!response.ok) throw new Error(result.error || 'Unable to sign in.'); currentAccount=result.user; $('account-password').value=''; $('account-dialog').close(); updateAccountUi(); } catch (issue) { error.textContent=issue.message; } };
