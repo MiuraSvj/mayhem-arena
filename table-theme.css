@@ -481,6 +481,11 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
   line-height:1;
   white-space:nowrap;
 }
+.pause-game-button { flex:0 0 auto; min-height:30px; padding:5px 9px; border-color:#d4aa58!important; color:#ffedc0!important; font-size:.68rem; line-height:1; white-space:nowrap; }
+.pause-game-icon { display:none; }
+.resume-match { display:grid; justify-items:center; gap:8px; margin:12px auto 0; }
+.resume-match p { margin:0; color:#9ec9d4; font-size:.76rem; }
+.resume-match .button { margin:0; }
 @media(max-width:700px) {
   #card-library-dialog { padding:17px; }
   #card-library-dialog .library-cards { grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:9px; }
@@ -489,6 +494,9 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
   #card-library-dialog .library-card.card > .card-art { flex-basis:68px; height:68px; }
   body:has(.battle:not(.hidden)) .status-strip #turn-status { max-width:27%; }
   body:has(.battle:not(.hidden)) .leave-battle-button { min-height:24px; padding:4px 6px; font-size:.52rem; }
+  body:has(.battle:not(.hidden)) .pause-game-button { min-width:25px; min-height:24px; padding:4px 6px; font-size:.52rem; }
+  body:has(.battle:not(.hidden)) .pause-game-label { display:none; }
+  body:has(.battle:not(.hidden)) .pause-game-icon { display:inline; font-size:.7rem; }
 }
 @media(prefers-reduced-motion:reduce) {
   body:has(.battle:not(.hidden)) .combatant.active { animation:none!important; }
@@ -888,6 +896,7 @@ body:has(.battle:not(.hidden)) .table-area::before {
 }
 
 /* Unify the setup, lobby, dialogs, and arena around the same deep-sea palette. */
+body:not(:has(.battle:not(.hidden))) .status-strip { display:none!important; }
 :root {
   --ink:#e9f8fc;
   --muted:#a9c6d1;
@@ -941,13 +950,39 @@ dialog::backdrop { background:#020c12c9; backdrop-filter:blur(4px); }
 .settings-volume { display:grid; grid-template-columns:1fr auto; }
 .settings-volume output { color:#f3c75e; font-size:.76rem; font-weight:900; }
 .settings-volume input { grid-column:1/-1; width:100%; accent-color:#47c1d7; }
+.music-choice-setting select { grid-column:1/-1; width:100%; min-width:0; padding:10px 12px; border:1px solid #347b90; border-radius:9px; color:#e9f8fc; background:#0d2938; font:inherit; font-size:.82rem; }
+.music-choice-setting select:focus-visible { outline:2px solid #f3c75e; outline-offset:2px; }
 .settings-test-row { display:flex; align-items:center; gap:10px; min-height:38px; }
 .settings-test-row .button { padding:8px 11px; border-color:#347b90; background:#153b4e; }
 .settings-test-row small { color:#9cc3d0; font-size:.7rem; }
 .settings-note { margin:17px 2px 0; color:#9cbac6; font-size:.7rem; line-height:1.45; }
+.app-shell.impact-feedback-pulse { animation:impact-feedback-pulse .2s ease-out; }
+@keyframes impact-feedback-pulse { 0%,100% { transform:translateX(0); filter:brightness(1); } 35% { transform:translateX(-2px); filter:brightness(1.07); } 70% { transform:translateX(2px); filter:brightness(.98); } }
+.battle-settings-button { display:none; flex:0 0 auto; min-width:36px; min-height:32px; padding:4px 9px; }
+body:has(.battle:not(.hidden)) .battle-settings-button { display:inline-flex; align-items:center; justify-content:center; }
+@media(max-width:700px) {
+  body:has(.battle:not(.hidden)) .battle-settings-button { min-width:29px; min-height:27px; padding:3px 6px; font-size:.78rem; }
+}
 @media(max-width:480px) {
   .settings-toggle,.settings-volume { padding:10px; }
   .settings-toggle small { max-width:240px; }
+}
+@media(prefers-reduced-motion:reduce) { .app-shell.impact-feedback-pulse { animation:none!important; } }
+
+/* Match options share the arena palette and feel like part of setup. */
+.match-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin:14px 0 8px; text-align:left; }
+.match-option { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:11px 12px; border:1px solid #347b90; border-radius:11px; background:linear-gradient(115deg,#12384a,#0d2938); transition:border-color .18s,box-shadow .18s,opacity .18s; }
+.match-option:focus-within { border-color:#65d7ed; box-shadow:0 0 0 3px #45c2dc2a; }
+.match-option.is-disabled { opacity:.5; }
+.match-option>span { display:grid; gap:3px; min-width:0; }
+.match-option strong { color:#e9f8fc; font-size:.82rem; }
+.match-option small { color:#a9c6d1; font-size:.66rem; line-height:1.3; }
+.match-option select { min-width:106px; padding:8px 26px 8px 9px; border:1px solid #347b90; border-radius:8px; background:#0b2533; color:#e8f8fc; font:inherit; font-size:.72rem; font-weight:800; }
+.match-option select:disabled { cursor:not-allowed; }
+.lobby-match-options { margin:14px 0; }
+@media(max-width:560px) {
+  .match-options { grid-template-columns:1fr; gap:6px; }
+  .match-option { padding:9px 10px; }
 }
 
 /* Give the arena the battle log's former row so the table has more room. */
@@ -1019,4 +1054,45 @@ body:has(.battle:not(.hidden)) .table-area {
   body:has(.battle:not(.hidden)) .table-area { grid-template-columns:32px minmax(0,1fr) 46px 32px!important; }
   .played-history-art { width:22px; height:25px; }
   .played-history>strong { font-size:.4rem; }
+}
+
+/* Keep the mobile battle controls and hand clear of Safari's moving bars. */
+@media(max-width:700px) {
+  body:has(.battle:not(.hidden)) .app-shell {
+    height:100svh!important;
+    height:100dvh!important;
+    min-height:0!important;
+    padding-top:max(5px,env(safe-area-inset-top,0px));
+    padding-bottom:max(5px,env(safe-area-inset-bottom,0px));
+  }
+  body:has(.battle:not(.hidden)) .status-strip {
+    position:relative;
+    z-index:40;
+    flex-wrap:nowrap;
+    min-height:35px;
+    padding-right:68px;
+  }
+  body:has(.battle:not(.hidden)) .leave-battle-button {
+    position:fixed;
+    z-index:1000;
+    top:calc(env(safe-area-inset-top,0px) + 8px);
+    right:10px;
+    min-height:30px;
+    margin:0;
+    padding:5px 10px;
+    font-size:.68rem;
+    box-shadow:0 3px 12px #00131dcc;
+  }
+  body:has(.battle:not(.hidden)) .battle {
+    grid-template-rows:minmax(40px,.55fr) minmax(125px,1fr) 24px minmax(190px,1.55fr)!important;
+  }
+  body:has(.battle:not(.hidden)) .player-board { grid-template-rows:auto auto minmax(0,1fr); }
+  body:has(.battle:not(.hidden)) .hand {
+    align-items:flex-start!important;
+    justify-content:center;
+    min-height:0!important;
+    padding-top:4px;
+    touch-action:pan-x;
+  }
+  body:has(.battle:not(.hidden)) .hand .card { align-self:flex-start; touch-action:manipulation; }
 }

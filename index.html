@@ -39,6 +39,8 @@
         <div id="turn-status"></div>
         <div class="turn-timer" id="turn-timer" aria-label="Turn timer"><span id="timer-label">60s</span><i><b id="timer-bar"></b></i></div>
         <div class="counter" id="action-counter">Cards to play: —</div>
+        <button class="button ghost battle-settings-button" id="battle-settings-button" type="button" aria-label="Open settings" aria-haspopup="dialog" title="Settings">⚙</button>
+        <button class="button ghost pause-game-button hidden" id="pause-game-button" type="button" title="Save this Vs AI match and continue later"><span class="pause-game-label">Pause &amp; save</span><span class="pause-game-icon" aria-hidden="true">Ⅱ</span></button>
         <button class="button ghost leave-battle-button hidden" id="leave-battle-button" type="button" aria-label="Leave battle" title="Leave battle">Leave</button>
       </section>
 
@@ -75,12 +77,17 @@
           <button class="player-count" data-players="3" type="button">3 players</button>
           <button class="player-count" data-players="4" type="button">4 players</button>
         </div>
+        <section class="match-options" aria-label="Match options">
+          <label class="match-option" for="ai-difficulty"><span><strong>AI difficulty</strong><small>Choose how strategically computer opponents play.</small></span><select id="ai-difficulty"><option value="rookie">Rookie</option><option value="tactician" selected>Tactician</option><option value="legend">Legend</option></select></label>
+          <label class="match-option" for="turn-limit-select"><span><strong>Turn clock</strong><small>Set a time limit for every turn.</small></span><select id="turn-limit-select"><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="90">90 seconds</option><option value="0">No timer</option></select></label>
+        </section>
         <fieldset class="rule-toggles">
           <legend>House rules</legend>
           <label class="toggle-row"><span><strong>Use house rules</strong><small>Start with 3 cards. No turn draw: draw only from a card effect or draw 2 automatically when you have 1 card left.</small></span><span class="switch-control"><input id="house-rules-toggle" type="checkbox" role="switch" checked /><i aria-hidden="true"></i><b id="house-rules-state">ON</b></span></label>
           <label class="toggle-row random-character-row"><span><strong>Random characters</strong><small>Deal a different random character to every player when the battle begins.</small></span><span class="switch-control"><input id="random-character-toggle" type="checkbox" role="switch" /><i aria-hidden="true"></i><b id="random-character-state">OFF</b></span></label>
         </fieldset>
         <button class="button primary" id="start-button" type="button">Begin battle</button>
+        <div class="resume-match hidden" id="resume-match"><p>Your Vs AI battle is saved on this device.</p><button class="button primary" id="resume-game-button" type="button">Resume saved battle</button></div>
       </section>
 
       <section class="setup-card lobby-page hidden" id="online-room-page">
@@ -90,6 +97,9 @@
         <section class="room-members" aria-live="polite">
           <div class="room-members-heading"><strong>Players</strong><span id="lobby-page-count">0/0</span></div>
           <ol id="lobby-page-list"></ol>
+        </section>
+        <section class="match-options lobby-match-options" aria-label="Online match options">
+          <label class="match-option" for="lobby-turn-limit-select"><span><strong>Turn clock</strong><small>The host chooses the time limit for everyone.</small></span><select id="lobby-turn-limit-select"><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="90">90 seconds</option><option value="0">No timer</option></select></label>
         </section>
         <h3 class="setup-subheading">Choose your character</h3>
         <div class="character-grid" id="lobby-character-grid">
@@ -149,7 +159,9 @@
       <div class="rules-grid">
         <article class="symbol-legend"><h3>Card symbols</h3><ul><li><strong>⚔️ Crossed Swords:</strong> Attack (deal damage).</li><li><strong>🛡️ Shield:</strong> Defense (protects you from damage).</li><li><strong>❤️ Heart:</strong> Heal (recover hit points).</li><li><strong>⚡ Lightning Bolt:</strong> Play an extra card.</li><li><strong>🃏 Cards Symbol:</strong> Draw an extra card.</li></ul></article>
         <article><h3>Goal</h3><p>Be the last player with hit points remaining. Each character begins at 10 HP.</p></article>
-        <article><h3>Turn</h3><p>Each player starts with 3 cards when house rules are on. There is no automatic draw at the start of a turn. Draw only when a card tells you to, or automatically draw 2 when your hand reaches 1 card. A lightning symbol adds another required card play.</p></article>
+        <article><h3>Turn</h3><p>The turn clock is set before a match begins. If it reaches zero, your remaining card plays are forfeited and the turn passes. Choose No timer for a relaxed match. A lightning symbol adds another required card play.</p></article>
+        <article><h3>House rules</h3><p>House rules ON: start with 3 cards, skip automatic turn draws, and draw 2 when your hand reaches 1 card. House rules OFF: start with 2 cards and draw 1 at the beginning of each turn. Card effects still apply in either mode.</p></article>
+        <article><h3>AI difficulty</h3><p>Rookie makes casual, unpredictable plays. Tactician weighs attacks, healing, and defense with some variation. Legend evaluates card value, shields, health, and likely knockouts, then targets the most vulnerable opponent.</p></article>
         <article><h3>Attack ⚔</h3><p>Choose an opponent. Damage removes active defense first, then their hit points.</p></article>
         <article><h3>Defense 🛡</h3><p>Defense stays on your board until its shields are gone. It absorbs damage before your HP.</p></article>
         <article><h3>Other symbols</h3><p>♥ restores HP up to 10. ▣ draws cards immediately. Every symbol on a card resolves: ⚔ + 🛡 deals damage, then stays as a defense. Non-defense cards go to your discard pile.</p></article>
@@ -173,6 +185,7 @@
       <section class="settings-group" aria-label="Audio settings">
         <h3>Audio</h3>
         <label class="settings-toggle"><span><strong>Background music</strong><small>Play a calm, looping arena soundtrack.</small></span><input id="music-enabled" type="checkbox" /></label>
+        <label class="settings-volume music-choice-setting"><span><strong>Music track</strong><small>Choose a favorite, or let the arena switch between menu and battle music.</small></span><select id="music-choice"><option value="auto">Automatic (menu + battle)</option><option value="lux">Lux Aeterna (all screens)</option><option value="cinematic">Cinematic Soul (all screens)</option><option value="epic">Epic Battle Song (all screens)</option><option value="blood">Battlefield of Blood (battle only)</option></select></label>
         <label class="settings-volume"><span><strong>Music volume</strong><output id="music-volume-value" for="music-volume">28%</output></span><input id="music-volume" type="range" min="0" max="100" step="1" value="28" /></label>
         <label class="settings-toggle"><span><strong>Game sound effects</strong><small>Card plays, attacks, and match results.</small></span><input id="sound-enabled" type="checkbox" /></label>
         <label class="settings-volume"><span><strong>Effects volume</strong><output id="effects-volume-value" for="effects-volume">55%</output></span><input id="effects-volume" type="range" min="0" max="100" step="1" value="55" /></label>
@@ -180,7 +193,7 @@
       </section>
       <section class="settings-group" aria-label="Vibration settings">
         <h3>Vibration</h3>
-        <label class="settings-toggle"><span><strong>Haptic feedback</strong><small id="vibration-support-note">Vibrate for attacks and important game events.</small></span><input id="vibration-enabled" type="checkbox" /></label>
+        <label class="settings-toggle"><span><strong>Haptic / impact feedback</strong><small id="vibration-support-note">Vibrate for attacks and important game events when supported.</small></span><input id="vibration-enabled" type="checkbox" /></label>
         <div class="settings-test-row"><button class="button ghost" id="test-vibration" type="button">Test vibration</button><small id="vibration-test-status" aria-live="polite"></small></div>
       </section>
       <p class="settings-note">Your preferences are saved on this device. Audio starts after your first interaction with the game.</p>
@@ -192,6 +205,7 @@
     <div class="winner-overlay hidden" id="winner-overlay"><div class="winner-card results-card"><p class="eyebrow">Battle complete</p><h2 id="winner-title">Victory!</h2><p id="winner-text"></p><section class="match-analytics" aria-label="Match analytics"><h3>Match analytics</h3><div id="winner-stats"></div></section><p class="fine-print hidden" id="ready-vote-status"></p><div class="post-match-actions"><button class="button primary" id="winner-restart" type="button">Play again</button><button class="button primary hidden" id="ready-next-button" type="button">Ready for next round</button><button class="button ghost hidden" id="leave-room-button" type="button">Leave room</button></div></div></div>
     <dialog id="account-dialog">
       <div class="dialog-heading"><div><p class="eyebrow">Player account</p><h2 id="account-title">Create your account</h2></div><button class="icon-button" id="close-account" aria-label="Close account dialog">×</button></div>
+      <p class="fine-print account-session-note">Only one device can be signed in at a time. Signing in here signs out the previous device.</p>
       <form id="account-form" class="account-form">
         <label>Username<input id="account-username" maxlength="18" autocomplete="username" required /></label>
         <label>Password<input id="account-password" type="password" minlength="8" autocomplete="new-password" required /></label>

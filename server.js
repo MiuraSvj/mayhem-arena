@@ -25,8 +25,8 @@ function verifyPassword(password, stored) {
   const [salt, expected] = stored.split(':');
   return new Promise((resolve, reject) => crypto.scrypt(password, salt, 64, (error, hash) => error ? reject(error) : resolve(crypto.timingSafeEqual(Buffer.from(expected, 'hex'), hash))));
 }
-function signSession(username) {
-  const payload = Buffer.from(JSON.stringify({ username, expires: Date.now() + 1000 * 60 * 60 * 24 * 14 })).toString('base64url');
+function signSession(username, sessionId) {
+  const payload = Buffer.from(JSON.stringify({ username, sessionId, expires: Date.now() + 1000 * 60 * 60 * 24 * 14 })).toString('base64url');
   const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -37,6 +37,15 @@ function readSession(request) {
   const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   if (!payload || !signature || signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   try { const session = JSON.parse(Buffer.from(payload, 'base64url').toString()); return session.expires > Date.now() ? session : null; } catch { return null; }
+}
+function authenticatedUser(request, list = users()) {
+  const session = readSession(request);
+  if (!session?.sessionId) return null;
+  return list.find((item) => item.username.toLowerCase() === session.username.toLowerCase() && item.activeSessionId === session.sessionId) || null;
+}
+function newSessionId() { return crypto.randomBytes(32).toString('hex'); }
+function setSessionCookie(response, username, sessionId) {
+  response.setHeader('Set-Cookie', `mayhem_session=${signSession(username, sessionId)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
 }
 function profileFor(user) {
   if (!user.profile || typeof user.profile !== 'object') user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [] };
@@ -50,16 +59,15 @@ function profileFor(user) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 app.get('/api/auth/me', (request, response) => {
-  const session = readSession(request);
   const list = users();
-  const user = session && list.find((item) => item.username.toLowerCase() === session.username.toLowerCase());
+  const session = readSession(request);
+  const user = authenticatedUser(request, list);
   if (user) { const needsMigration = !user.profile; profileFor(user); if (needsMigration) saveUsers(list); }
-  response.json({ user: user ? { username: user.username, profile: user.profile } : null });
+  response.json({ user: user ? { username: user.username, profile: user.profile } : null, sessionEndedElsewhere: Boolean(session && !user) });
 });
 app.post('/api/profile/match', (request, response) => {
-  const session = readSession(request);
   const list = users();
-  const user = session && list.find((item) => item.username.toLowerCase() === session.username.toLowerCase());
+  const user = authenticatedUser(request, list);
   if (!user) return response.status(401).json({ error: 'Sign in to save match stats.' });
   const { matchId, won, character } = request.body || {};
   if (typeof matchId !== 'string' || !/^[A-Za-z0-9-]{8,80}$/.test(matchId) || typeof won !== 'boolean' || typeof character !== 'string') return response.status(400).json({ error: 'Invalid match stats.' });
@@ -81,10 +89,11 @@ app.post('/api/auth/register', async (request, response) => {
   if (password.length < 8) return response.status(400).json({ error: 'Use a password with at least 8 characters.' });
   const list = users();
   if (list.some((user) => user.username.toLowerCase() === username.toLowerCase())) return response.status(409).json({ error: 'That username is already in use.' });
-  const user = { username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), profile: { matches: 0, wins: 0, characters: {}, matchIds: [] } };
+  const sessionId = newSessionId();
+  const user = { username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), activeSessionId: sessionId, profile: { matches: 0, wins: 0, characters: {}, matchIds: [] } };
   list.push(user);
   saveUsers(list);
-  response.setHeader('Set-Cookie', `mayhem_session=${signSession(username)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
+  setSessionCookie(response, username, sessionId);
   response.status(201).json({ user: { username, profile: profileFor(user) } });
 });
 app.post('/api/auth/login', async (request, response) => {
@@ -93,13 +102,18 @@ app.post('/api/auth/login', async (request, response) => {
   const list = users();
   const user = list.find((item) => item.username.toLowerCase() === username.toLowerCase());
   if (!user || !(await verifyPassword(password, user.passwordHash))) return response.status(401).json({ error: 'Username or password is incorrect.' });
-  const needsMigration = !user.profile;
   profileFor(user);
-  if (needsMigration) saveUsers(list);
-  response.setHeader('Set-Cookie', `mayhem_session=${signSession(user.username)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
-  response.json({ user: { username: user.username, profile: user.profile } });
+  const hadOtherDeviceSession = Boolean(user.activeSessionId);
+  const sessionId = newSessionId();
+  user.activeSessionId = sessionId;
+  saveUsers(list);
+  setSessionCookie(response, user.username, sessionId);
+  response.json({ user: { username: user.username, profile: user.profile }, replacedSession: hadOtherDeviceSession });
 });
-app.post('/api/auth/logout', (_request, response) => {
+app.post('/api/auth/logout', (request, response) => {
+  const list = users();
+  const user = authenticatedUser(request, list);
+  if (user) { delete user.activeSessionId; saveUsers(list); }
   response.setHeader('Set-Cookie', 'mayhem_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
   response.status(204).end();
 });
