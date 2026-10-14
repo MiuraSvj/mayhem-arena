@@ -1,14 +1,14 @@
 const characters = [
-  { id:'sutha', name:'Sutha the Skullcrusher', role:'Barbarian', cards:[
+  { id:'sutha', name:'Sutha the Skullcrusher', role:'Barbarian', weapon:'axe', cards:[
     {name:'Big Axe is Best Axe',type:'attack',count:5,damage:3},{name:'Two Axes are Better Than One',type:'trick',count:2,again:2},{name:'Whirling Axes',type:'mighty',count:2,damage:1,area:true,healPerOpponent:true,mighty:true},{name:'Mighty Toss',type:'mighty',count:2,destroyDefense:true,draw:1,mighty:true},{name:'Battle Roar',type:'mighty',count:2,discardHandDraw:3,again:1,mighty:true},{name:'Head Butt',type:'attack',count:2,damage:1,again:1},{name:'Brutal Punch',type:'attack',count:2,damage:2},{name:'Rage!',type:'attack',count:2,damage:4},{name:'Open the Armory',type:'trick',count:2,draw:2},{name:'Flex',type:'trick',count:2,heal:1,draw:1},{name:'Bag of Rats',type:'mighty',count:1,shield:1,draw:1,mighty:true},{name:'Spiked Shield',type:'defense',count:1,shield:2},{name:'Riff',type:'defense',count:1,shield:3},{name:'Raff',type:'defense',count:1,shield:3},{name:'Snack Time',type:'heal',count:1,draw:2,heal:1}
   ]},
-  { id:'azzan', name:'Azzan the Mystic', role:'Wizard', cards:[
+  { id:'azzan', name:'Azzan the Mystic', role:'Wizard', weapon:'staff', cards:[
     {name:'Lightning Bolt',type:'attack',count:4,damage:3},{name:'Magic Missile',type:'attack',count:3,damage:1,again:1},{name:'Burning Hands',type:'attack',count:3,damage:2},{name:'Knowledge is Power',type:'trick',count:3,draw:3},{name:'Speed of Thought',type:'trick',count:3,again:2},{name:'Fireball',type:'mighty',count:2,damage:3,area:true,areaSelf:true,mighty:true},{name:'Charm',type:'mighty',count:2,stealDefense:true,mighty:true},{name:'Evil Sneer',type:'trick',count:2,heal:1,again:1},{name:'Vampiric Touch',type:'mighty',count:2,swap:true,mighty:true},{name:'Shield',type:'defense',count:2,shield:1,draw:1},{name:'Stoneskin',type:'defense',count:1,shield:2},{name:'Mirror Image',type:'defense',count:1,shield:3}
   ]},
-  { id:'lia', name:'Lia the Radiant', role:'Paladin', cards:[
+  { id:'lia', name:'Lia the Radiant', role:'Paladin', weapon:'sword', cards:[
     {name:'For Even More Justice!',type:'attack',count:4,damage:2},{name:'For Justice!',type:'attack',count:3,damage:1,again:1},{name:'Fighting Words',type:'attack',count:3,damage:2,heal:1},{name:'For the Most Justice!',type:'attack',count:2,damage:3},{name:'Divine Smite',type:'attack',count:3,damage:3,heal:1},{name:'Divine Shield',type:'defense',count:2,shield:3},{name:'Spinning Parry',type:'defense',count:2,shield:1,draw:1},{name:'Finger Wag of Judgement',type:'trick',count:2,again:2},{name:'Divine Inspiration',type:'mighty',count:2,reclaim:true,heal:2,mighty:true},{name:'Cure Wounds',type:'heal',count:1,draw:2,heal:1},{name:'High Charisma',type:'trick',count:2,draw:2},{name:'Banishing Smite',type:'mighty',count:1,destroyAllDefense:true,mighty:true},{name:'Fluffy',type:'mighty',count:1,shield:2,mighty:true}
   ]},
-  { id:'oriax', name:'Oriax the Clever', role:'Rogue', cards:[
+  { id:'oriax', name:'Oriax the Clever', role:'Rogue', weapon:'daggers', cards:[
     {name:'One Thrown Dagger',type:'attack',count:5,damage:1,again:1},{name:'Two Thrown Daggers',type:'attack',count:4,damage:2},{name:'All The Thrown Daggers',type:'attack',count:3,damage:3},{name:'Winged Serpent',type:'defense',count:2,shield:1,draw:1},{name:'The Goon Squad',type:'defense',count:2,shield:2},{name:'Sneak Attack!',type:'mighty',count:2,destroyDefense:true,again:1,mighty:true},{name:'Clever Disguise',type:'mighty',count:2,protected:true,mighty:true},{name:'Cunning Action',type:'trick',count:2,again:2},{name:'Stolen Potion',type:'heal',count:2,heal:1,again:1},{name:'Pick Pocket',type:'mighty',count:2,stealTop:true,mighty:true},{name:'Even More Daggers',type:'trick',count:1,draw:2,heal:1},{name:'My Little Friend',type:'defense',count:1,shield:1,draw:1,again:1}
   ]},
 ];
@@ -31,6 +31,7 @@ let gameMode = 'ai';
 let socket = null;
 let onlineRoom = null;
 let onlinePlayers = [];
+let onlineRematchVotes = [];
 let localPlayerIndex = 0;
 const TURN_LIMIT_SECONDS = 60;
 let turnDeadline = 0;
@@ -40,31 +41,59 @@ let lastAction = null;
 let seenPlayedCardId = null;
 let seenFirstRollMatchId = null;
 const seenVisualEffectIds = new Set();
+const lastEffectSoundAt = new Map();
 let profileMatchSaved = false;
 let randomCharacter = false;
 let audioContext = null;
 let resultFeedbackMatchId = null;
 function readUiPreference(key, fallback) { try { const saved=localStorage.getItem(key); return saved===null?fallback:saved==='true'; } catch { return fallback; } }
+function readUiVolume(key, fallback) { try { const stored=localStorage.getItem(key); if(stored===null) return fallback; const saved=Number(stored); return Number.isFinite(saved)?Math.max(0,Math.min(1,saved)):fallback; } catch { return fallback; } }
 let soundEnabled = readUiPreference('mayhem-sound',true);
 let vibrationEnabled = readUiPreference('mayhem-vibration',true);
+let musicEnabled = readUiPreference('mayhem-music',true);
+let soundVolume = readUiVolume('mayhem-sound-volume',.55);
+let musicVolume = readUiVolume('mayhem-music-volume',.28);
+let menuMusicTrack = null;
+let battleMusicTrack = null;
+let activeMusicTrack = null;
 const gameTimeouts = new Set();
 
-function updateFeedbackControls() {
-  const sound=$('sound-toggle'), vibration=$('vibration-toggle');
-  sound.textContent=soundEnabled?'🔊':'🔇'; sound.title=`Sound ${soundEnabled?'on':'off'} · click to toggle`; sound.setAttribute('aria-label',`Sound ${soundEnabled?'on':'off'}`); sound.setAttribute('aria-pressed',String(soundEnabled));
-  const supported=typeof navigator.vibrate==='function'; vibration.disabled=!supported; vibration.textContent=supported?(vibrationEnabled?'📳':'📴'):'📳'; vibration.title=supported?`Vibration ${vibrationEnabled?'on':'off'} · click to toggle`:'Vibration is not supported on this device'; vibration.setAttribute('aria-label',supported?`Vibration ${vibrationEnabled?'on':'off'}`:'Vibration unavailable'); vibration.setAttribute('aria-pressed',String(supported && vibrationEnabled));
+function saveUiPreference(key,value) { try { localStorage.setItem(key,String(value)); } catch { /* Preferences are optional when storage is unavailable. */ } }
+function updateSettingsControls() {
+  $('music-enabled').checked=musicEnabled;
+  $('sound-enabled').checked=soundEnabled;
+  $('vibration-enabled').checked=vibrationEnabled;
+  $('music-volume').value=String(Math.round(musicVolume*100));
+  $('effects-volume').value=String(Math.round(soundVolume*100));
+  $('music-volume-value').value=`${Math.round(musicVolume*100)}%`;
+  $('effects-volume-value').value=`${Math.round(soundVolume*100)}%`;
+  const supported=typeof navigator.vibrate==='function';
+  $('vibration-enabled').disabled=!supported;
+  $('test-vibration').disabled=!supported || !vibrationEnabled;
+  $('vibration-support-note').textContent=supported?'Vibrate for attacks and important game events.':'Vibration is not supported by this browser or device.';
+  $('vibration-test-status').textContent=supported?'':'Unavailable on this device';
 }
 function playGameSound(kind) {
-  if(!soundEnabled) return;
+  if(!soundEnabled || soundVolume<=0) return;
   const AudioContextType=window.AudioContext || window.webkitAudioContext; if(!AudioContextType) return;
   try {
     if(!audioContext) audioContext=new AudioContextType();
     if(audioContext.state==='suspended') audioContext.resume().catch(()=>{});
-    const cues={card:[[620,.09,0],[820,.11,.075]],attack:[[145,.12,0],[420,.1,.035]],win:[[523,.16,0],[659,.16,.12],[784,.24,.24]],lose:[[330,.18,0],[247,.24,.15]]};
+    const cues={
+      card:[[620,.09,0],[820,.11,.075]],attack:[[145,.12,0],[420,.1,.035]],
+      axe:[[230,.13,0],[115,.2,.045],[510,.09,.12]],lightning:[[1040,.07,0],[620,.1,.06],[175,.2,.12]],
+      blast:[[180,.22,0],[110,.24,.06],[390,.1,.1]],staff:[[520,.12,0],[740,.16,.09]],
+      sword:[[820,.07,0],[480,.12,.045]],daggers:[[950,.045,0],[690,.06,.04],[440,.08,.08]],slash:[[760,.06,0],[390,.13,.055]],
+      shield:[[360,.12,0],[680,.16,.08]],block:[[520,.07,0],[220,.15,.045]],heal:[[660,.12,0],[880,.18,.1],[1040,.2,.22]],
+      draw:[[740,.055,0],[1020,.08,.065]],discard:[[360,.1,0],[190,.13,.05]],swap:[[430,.1,0],[700,.12,.09],[500,.13,.18]],
+      shatter:[[920,.06,0],[610,.1,.045],[280,.18,.1]],steal:[[530,.075,0],[820,.1,.07]],ward:[[400,.12,0],[610,.18,.1]],
+      extra:[[600,.08,0],[900,.12,.07]],knockout:[[330,.12,0],[220,.22,.1]],win:[[523,.16,0],[659,.16,.12],[784,.24,.24]],lose:[[330,.18,0],[247,.24,.15]]
+    };
     for(const [frequency,duration,delay] of cues[kind] || cues.card) {
       const oscillator=audioContext.createOscillator(), gain=audioContext.createGain(), start=audioContext.currentTime+delay;
-      oscillator.type=kind==='attack'?'triangle':'sine'; oscillator.frequency.setValueAtTime(frequency,start);
-      gain.gain.setValueAtTime(.0001,start); gain.gain.exponentialRampToValueAtTime(kind==='attack' ? .045 : .035,start+.012); gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+      oscillator.type=['attack','axe','blast','block','shatter','knockout'].includes(kind)?'triangle':'sine'; oscillator.frequency.setValueAtTime(frequency,start);
+      if(['axe','lightning','blast','sword','daggers','slash','discard','shatter','knockout'].includes(kind)) oscillator.frequency.exponentialRampToValueAtTime(Math.max(45,frequency*(kind==='lightning'?0.24:0.58)),start+duration);
+      gain.gain.setValueAtTime(.0001,start); gain.gain.exponentialRampToValueAtTime((['attack','axe','lightning','blast','knockout'].includes(kind) ? .045 : .035)*soundVolume,start+.012); gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
       oscillator.connect(gain); gain.connect(audioContext.destination); oscillator.start(start); oscillator.stop(start+duration+.02);
     }
   } catch { /* Audio can be unavailable or blocked by browser policy. */ }
@@ -75,10 +104,46 @@ function vibrateGame(kind) {
   try { navigator.vibrate(patterns[kind] || patterns.card); } catch { /* Ignore unsupported haptics. */ }
 }
 function gameFeedback(kind) { playGameSound(kind); vibrateGame(kind); }
+function playEffectSound(kind) {
+  const now=Date.now(), previous=lastEffectSoundAt.get(kind)||0;
+  if(now-previous<180) return;
+  lastEffectSoundAt.set(kind,now);
+  playGameSound(kind);
+}
+function syncBackgroundMusic() {
+  if(!musicEnabled || musicVolume<=0) { stopBackgroundMusic(); return; }
+  const isBattleMusic=Boolean(game && !game.finished);
+  const selectedTrack=isBattleMusic ? battleMusicTrack : menuMusicTrack;
+  if(activeMusicTrack && activeMusicTrack!==selectedTrack) activeMusicTrack.pause();
+  try {
+    let track=selectedTrack;
+    if(!track) {
+      track=new Audio(isBattleMusic
+        ? '/assets/music/rolandomat-epic-battle-song-182915.mp3'
+        : '/assets/music/cinematic-soul-halloween-background-music-617918.mp3');
+      track.loop=true;
+      track.preload='auto';
+      if(isBattleMusic) battleMusicTrack=track; else menuMusicTrack=track;
+    }
+    track.volume=musicVolume;
+    activeMusicTrack=track;
+    if(track.paused) track.play().catch(()=>{});
+  } catch { /* Audio is optional. */ }
+}
+function startBackgroundMusic() {
+  syncBackgroundMusic();
+}
+function stopBackgroundMusic() {
+  if(activeMusicTrack) activeMusicTrack.pause();
+  activeMusicTrack=null;
+}
 function unlockGameAudio() {
-  if(!soundEnabled) return;
-  const AudioContextType=window.AudioContext || window.webkitAudioContext; if(!AudioContextType) return;
-  try { if(!audioContext) audioContext=new AudioContextType(); if(audioContext.state==='suspended') audioContext.resume().catch(()=>{}); } catch { /* Audio is optional. */ }
+  if(!soundEnabled && !musicEnabled) return;
+  if(soundEnabled) {
+    const AudioContextType=window.AudioContext || window.webkitAudioContext;
+    if(AudioContextType) try { if(!audioContext) audioContext=new AudioContextType(); if(audioContext.state==='suspended') audioContext.resume().catch(()=>{}); } catch { /* Audio is optional. */ }
+  }
+  if(musicEnabled) startBackgroundMusic();
 }
 document.addEventListener('pointerdown',unlockGameAudio,{once:true});
 
@@ -99,8 +164,10 @@ function updateBattleControls() {
 }
 function stopCurrentGame() {
   stopTurnTimer(); clearGameActions(); game=null; pendingCard=null; lastAction=null; lastHitPlayer=null;
+  syncBackgroundMusic();
   els.target.classList.add('hidden'); els.winner.classList.add('hidden'); els.battle.classList.add('hidden');
   $('online-room-page').classList.add('hidden'); els.setup.classList.remove('hidden');
+  window.scrollTo(0,0);
   updateBattleControls();
   setStatus('Choose a character and game size to begin.'); els.actions.textContent='Cards to play: —';
 }
@@ -174,13 +241,14 @@ function queueVisualEffect(player,kind,label='') {
 function playVisualEffects() {
   if(!game?.visualEffects?.length) return;
   const localIndex=gameMode==='online' ? localPlayerIndex : 0;
-  const icons={lightning:'⚡',blast:'💥',slash:'⚔',shield:'🛡',block:'🛡',heal:'💚',draw:'🃏',discard:'🂠',swap:'⇄',shatter:'✦',steal:'⇣',ward:'◉',reclaim:'↶',extra:'⚡',knockout:'💫'};
+  const icons={lightning:'⚡',blast:'💥',axe:'🪓',staff:'🪄',sword:'🗡️',daggers:'🗡️',slash:'⚔',shield:'🛡',block:'🛡',heal:'💚',draw:'🃏',discard:'🂠',swap:'⇄',shatter:'✦',steal:'⇣',ward:'◉',reclaim:'↶',extra:'⚡',knockout:'💫'};
   game.visualEffects.forEach((effect)=>{
     if(seenVisualEffectIds.has(effect.id)) return;
     seenVisualEffectIds.add(effect.id);
     if(Date.now()>effect.expiresAt) return;
     const target=effect.playerIndex===localIndex ? $('player-board') : document.querySelector(`.combatant[data-player-index="${effect.playerIndex}"]`);
     if(!target) return;
+    playEffectSound(effect.kind);
     const burst=document.createElement('div'); burst.className=`combat-fx fx-${effect.kind}`; burst.setAttribute('aria-hidden','true');
     const mark=document.createElement('span'); mark.className='fx-mark'; mark.textContent=icons[effect.kind] || '✦'; burst.append(mark);
     if(effect.label) { const label=document.createElement('small'); label.textContent=effect.label; burst.append(label); }
@@ -207,11 +275,6 @@ function refillLowHand(player) {
 }
 function setStatus(text) { els.status.textContent = text; }
 function updateHouseRuleLabel() { $('house-rules-state').textContent=$('house-rules-toggle').checked ? 'ON' : 'OFF'; }
-function randomCharacterId(excluded=[]) {
-  const available=characters.filter((character)=>!excluded.includes(character.id));
-  const choices=available.length ? available : characters;
-  return choices[Math.floor(Math.random()*choices.length)].id;
-}
 function setSelectedCharacter(character) {
   selectedCharacter=character;
   document.querySelectorAll('.character-choice').forEach((button)=>button.classList.toggle('selected',button.dataset.character===character));
@@ -224,13 +287,9 @@ function syncRandomCharacterUi() {
 function setRandomCharacter(enabled) {
   randomCharacter=enabled;
   syncRandomCharacterUi();
-  if(!enabled) return;
-  if(gameMode==='online' && onlineRoom) {
-    socket.emit('change-character',{code:onlineRoom.code,character:'random'},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; });
-    return;
+  if(gameMode==='online' && onlineRoom && onlineRoom.hostId===socket?.id) {
+    socket.emit('set-room-random-character',{code:onlineRoom.code,enabled},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; });
   }
-  const unavailable=gameMode==='online' ? onlinePlayers.filter((player)=>player.id!==socket?.id && !player.left).map((player)=>player.character) : [];
-  setSelectedCharacter(randomCharacterId(unavailable));
 }
 function playerAtTurn() { return game.players[game.current]; }
 function canControlTurn() { return Boolean(game) && (gameMode === 'online' ? game.current === localPlayerIndex : playerAtTurn().isHuman); }
@@ -248,18 +307,23 @@ function rollFirstPlayer(players) {
   return {rolls,winnerIndex,rounds};
 }
 function startGame() {
+  els.winner.classList.add('hidden');
   lastAction = null; lastHitPlayer = null;
   seenPlayedCardId=null; profileMatchSaved=false; resultFeedbackMatchId=null;
   const houseRules = $('house-rules-toggle').checked;
-  const rules = { houseRules, openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules, turnDraw: !houseRules };
-  if(gameMode!=='online' && randomCharacter) setSelectedCharacter(randomCharacterId());
+  const randomizeCharacters=gameMode==='online' ? Boolean(onlineRoom?.randomCharacter) : randomCharacter;
+  const rules = { houseRules, openingHand: houseRules, stackDamage: houseRules, oneCardRefill: houseRules, turnDraw: !houseRules, randomCharacter:randomizeCharacters };
   const chosen = characters.find((character)=>character.id===selectedCharacter);
-  if(gameMode!=='online' && !chosen) { setStatus('Choose a character before starting the battle.'); return; }
+  if(gameMode!=='online' && !randomizeCharacters && !chosen) { setStatus('Choose a character before starting the battle.'); return; }
   const opponents = shuffle(characters.filter((character)=>character.id!==selectedCharacter)).slice(0,selectedPlayers-1);
   const names=[...document.querySelectorAll('#name-fields input')].map((input,index)=>input.value.trim() || `Player ${index+1}`);
   if(gameMode==='online' && (!onlineRoom || onlinePlayers.filter((player)=>!player.left).length<2)) { setStatus('Create or join an online room before beginning.'); return; }
   if(gameMode==='online' && onlineRoom.hostId!==socket.id) { setStatus('Only the room host can begin the battle.'); return; }
-  const roster=gameMode==='online' ? onlinePlayers.filter((entry)=>!entry.left) : [{name:names[0],character:chosen.id},...opponents.map((character)=>({name:character.name,character:character.id}))];
+  let roster=gameMode==='online' ? onlinePlayers.filter((entry)=>!entry.left) : [{name:names[0],character:chosen?.id},...opponents.map((character)=>({name:character.name,character:character.id}))];
+  if(randomizeCharacters) {
+    const randomRoster=shuffle(characters).slice(0,roster.length);
+    roster=roster.map((entry,index)=>({...entry,character:randomRoster[index].id}));
+  }
   if(gameMode==='online' && roster.length!==onlineRoom.limit) { setStatus('Every seat must be filled before starting.'); return; }
   if(gameMode==='online' && roster.some((player)=>!player.character)) { setStatus('Every player must choose a character before the battle can begin.'); return; }
   if(gameMode==='online' && roster.some((player)=>!player.ready)) { setStatus('Every player must press Ready before starting.'); return; }
@@ -267,12 +331,14 @@ function startGame() {
   const players=roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name, ...(entry.id ? {socketId:entry.id} : {}) }));
   const firstRoll=rollFirstPlayer(players);
   game = { matchId:crypto.randomUUID(), players, current:firstRoll.winnerIndex, firstRoll, firstRollEndsAt:Date.now()+2200, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[], visualEffects:[] };
+  syncBackgroundMusic();
   seenVisualEffectIds.clear();
   seenFirstRollMatchId=null;
   if(gameMode==='online') localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id);
   game.players.forEach((player) => draw(player,rules.openingHand ? 3 : 2));
   updateBattleControls();
   els.setup.classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML = '';
+  window.scrollTo(0,0);
   log(`The dice decide who goes first. ${game.players[game.current].name} wins the roll and takes the first turn.`);
   log(houseRules ? 'House rules ON: no automatic draw at the start of a turn.' : 'House rules OFF: players draw 1 card at the start of a turn.');
   beginTurn();
@@ -305,20 +371,34 @@ function checkWinner() {
   setStatus('Battle complete.'); return true;
 }
 function showResults(winner) {
+  syncBackgroundMusic();
   if(resultFeedbackMatchId!==game.matchId) { resultFeedbackMatchId=game.matchId; const localWinner=gameMode==='online'?winner===game.players[localPlayerIndex]:Boolean(winner?.isHuman); gameFeedback(localWinner?'win':'lose'); }
   els.winner.classList.remove('hidden');
   $('winner-restart').classList.toggle('hidden',gameMode==='online');
+  $('ready-next-button').classList.toggle('hidden',gameMode!=='online');
+  $('ready-vote-status').classList.toggle('hidden',gameMode!=='online');
   $('leave-room-button').classList.remove('hidden');
   $('leave-room-button').textContent=gameMode==='online' ? 'Leave match' : 'Leave battle';
   els.winnerTitle.textContent = winner?.isHuman ? 'Victory!' : `${winner?.name || 'Nobody'} wins`;
   els.winnerText.textContent = winner?.isHuman ? 'You are the last fighter standing.' : 'The arena falls silent. Start another battle and claim the crown.';
   els.winnerStats.innerHTML = game.players.slice().sort((left,right)=>Number(right===winner)-Number(left===winner) || right.stats.damageDealt-left.stats.damageDealt).map((player)=>`<article class="result-row ${player===winner?'winner':''}"><div><strong>${player===winner?'♛ ':''}${player.name}</strong><small>${player.role} · ${player.alive ? `${player.hp} HP left` : 'Knocked out'}</small></div><dl><div><dt>Damage</dt><dd>${player.stats.damageDealt}</dd></div><div><dt>Taken</dt><dd>${player.stats.damageTaken}</dd></div><div><dt>Blocked</dt><dd>${player.stats.damageBlocked}</dd></div><div><dt>Healed</dt><dd>${player.stats.healing}</dd></div><div><dt>Shields</dt><dd>${player.stats.shieldsRaised}</dd></div><div><dt>Cards</dt><dd>${player.stats.cardsPlayed}</dd></div></dl></article>`).join('');
+  renderRematchVoteStatus();
   if(currentAccount && !profileMatchSaved) {
     profileMatchSaved=true;
     const local=gameMode==='online' ? game.players[localPlayerIndex] : game.players[0];
     fetch('/api/profile/match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matchId:game.matchId,won:local===winner,character:local.character.id})})
       .then((response)=>response.ok ? response.json() : null).then((result)=>{ if(result && currentAccount) { currentAccount.profile=result.profile; renderProfile(); } }).catch(()=>{});
   }
+}
+function renderRematchVoteStatus() {
+  if(gameMode!=='online') return;
+  const active=onlinePlayers.filter((player)=>!player.left);
+  const votes=onlineRematchVotes.filter((id)=>active.some((player)=>player.id===id));
+  const alreadyVoted=votes.includes(socket?.id);
+  $('ready-vote-status').textContent=votes.length===active.length && active.length ? 'Everyone is ready. Starting the next battle…' : `${votes.length} of ${active.length} players are ready to play again.`;
+  const button=$('ready-next-button');
+  button.disabled=alreadyVoted;
+  button.textContent=alreadyVoted?'Ready ✓':'Ready for next round';
 }
 function damage(target, amount, attacker) {
   if (target.protected && target !== attacker) { queueVisualEffect(target,'ward','BLOCKED'); log(`${target.name}'s disguise ignores ${attacker.name}'s card effect.`); return; }
@@ -347,7 +427,15 @@ function resolvePendingDamage() {
 function effectSymbols(card) { const result=[]; if(card.damage) result.push(`${card.area?'☄':'⚔'} ${card.damage}${card.areaSelf?' all':''}`); if(card.shield) result.push(`🛡 ${card.shield}`); if(card.heal) result.push(`♥ ${card.heal}`); if(card.healPerOpponent) result.push('♥ × foes'); if(card.draw) result.push(`▣ ${card.draw}`); if(card.again) result.push(`⚡ ${card.again}`); if(card.swap) result.push('⇄ HP'); if(card.destroyDefense) result.push('✦ break'); if(card.destroyAllDefense) result.push('✦ all break'); if(card.stealDefense) result.push('⇣ shield'); if(card.discardTarget) result.push('✕ discard'); if(card.discardHandDraw) result.push(`↻ ${card.discardHandDraw}`); if(card.reclaim) result.push('↶ reclaim'); if(card.protected) result.push('◉ ward'); if(card.stealTop) result.push('⇣ card'); return result.join('  '); }
 function cardActionSymbols(card) { const result=[]; if(card.damage) result.push(card.area?'☄':'⚔'); if(card.shield) result.push('🛡'); if(card.heal || card.healPerOpponent) result.push('♥'); if(card.again) result.push('⚡'); if(card.draw) result.push('🃏'); if(card.swap || card.destroyDefense || card.destroyAllDefense || card.stealDefense || card.discardTarget || card.discardHandDraw || card.reclaim || card.protected || card.stealTop) result.push('✦'); return result.join(' ') || '✦'; }
 function effectRows(card) { const rows=[]; if(card.damage) rows.push(`<span><b>${card.area?'☄':'⚔'}</b>${card.area ? `Deal ${card.damage} to ${card.areaSelf?'every player':'each opponent'}` : `Deal ${card.damage} damage`}</span>`); if(card.shield) rows.push(`<span><b>🛡</b>Block ${card.shield} damage</span>`); if(card.heal) rows.push(`<span><b>♥</b>Recover ${card.heal} HP</span>`); if(card.healPerOpponent) rows.push('<span><b>♥</b>Recover 1 HP per opponent</span>'); if(card.draw) rows.push(`<span><b>▣</b>Draw ${card.draw} card${card.draw>1?'s':''}</span>`); if(card.again) rows.push(`<span><b>⚡</b>Play ${card.again===1?'an extra card':`${card.again} extra cards`}</span>`); if(card.swap) rows.push('<span class="mighty"><b>✦</b>Swap HP with an opponent</span>'); if(card.destroyDefense) rows.push('<span class="mighty"><b>✦</b>Destroy an active defense</span>'); if(card.destroyAllDefense) rows.push('<span class="mighty"><b>✦</b>Destroy every defense</span>'); if(card.stealDefense) rows.push('<span class="mighty"><b>⇣</b>Take an active defense</span>'); if(card.discardTarget) rows.push('<span class="mighty"><b>✕</b>Target discards a card</span>'); if(card.discardHandDraw) rows.push(`<span class="mighty"><b>↻</b>All discard, then draw ${card.discardHandDraw}</span>`); if(card.reclaim) rows.push('<span class="mighty"><b>↶</b>Choose a discard to return</span>'); if(card.protected) rows.push('<span class="mighty"><b>◉</b>Ignore effects until next turn</span>'); if(card.stealTop) rows.push('<span class="mighty"><b>⇣</b>Take and play their top card</span>'); return rows.join(''); }
-function damageEffectKind(card) { return /lightning|bolt|thunder|storm/i.test(card.name) ? 'lightning' : card.area ? 'blast' : 'slash'; }
+function damageEffectKind(card, attacker) {
+  const weapon=attacker?.character?.weapon;
+  if (weapon==='axe') return 'axe';
+  if (/lightning|bolt|thunder|storm/i.test(card.name)) return 'lightning';
+  if (weapon==='staff') return 'staff';
+  if (weapon==='sword') return 'sword';
+  if (weapon==='daggers') return 'daggers';
+  return card.area ? 'blast' : 'slash';
+}
 function playCard(actor, card, target=null, reclaimChoice=null) {
   if(Date.now() < (game.revealUntil || 0)) return;
   const clicked=document.querySelector(`.card[data-card-id="${card.id}"]`); if(clicked) clicked.classList.add('played');
@@ -360,7 +448,7 @@ function playCard(actor, card, target=null, reclaimChoice=null) {
   actor.hand.splice(actor.hand.indexOf(card),1); game.required = Math.max(0,game.required-1) + (card.again || 0);
   const reclaimCandidate = card.reclaim ? (reclaimChoice || actor.discard.at(-1)) : null;
   const dealDamage = (recipient) => {
-    queueVisualEffect(recipient,damageEffectKind(card),`−${card.damage}`);
+    queueVisualEffect(recipient,damageEffectKind(card,actor),`−${card.damage}`);
     if (game.rules.stackDamage) queueDamage(recipient,card.damage,actor);
     else damage(recipient,card.damage,actor);
   };
@@ -463,7 +551,7 @@ function runAi() {
 }
 function renderFirstRoll() {
   const holder=$('dice-roll-display');
-  if(!game?.firstRoll) { holder.classList.add('hidden'); return; }
+  if(!game?.firstRoll || Date.now()>=(game.firstRollEndsAt || 0)) { holder.classList.add('hidden'); holder.classList.remove('rolling'); return; }
   if(seenFirstRollMatchId===game.matchId) return;
   seenFirstRollMatchId=game.matchId;
   holder.innerHTML='';
@@ -472,7 +560,7 @@ function renderFirstRoll() {
   const winner=document.createElement('small'); winner.className='dice-roll-winner'; winner.textContent=`${game.players[game.firstRoll.winnerIndex].name} goes first${game.firstRoll.rounds>1?' · tied dice rerolled':''}`; holder.append(winner);
   holder.classList.remove('hidden'); holder.classList.add('rolling');
   scheduleGameAction(()=>holder.classList.remove('rolling'),2000);
-  scheduleGameAction(()=>{ if(game?.matchId===seenFirstRollMatchId) render(); },Math.max(0,(game.firstRollEndsAt||Date.now())-Date.now()+30));
+  scheduleGameAction(()=>{ if(game?.matchId===seenFirstRollMatchId) { holder.classList.add('hidden'); holder.classList.remove('rolling'); } },Math.max(0,(game.firstRollEndsAt||Date.now())-Date.now()));
 }
 function render() {
   if(!game) return;
@@ -488,7 +576,8 @@ function render() {
   if(lastAction) { const targetText=lastAction.area ? (lastAction.card.areaSelf ? 'every player' : 'all opponents') : (lastAction.target ? lastAction.target.name : 'their board'); banner.innerHTML=`<span>${lastAction.card.damage?'⚔':'✦'}</span><strong>${lastAction.actor.name} used ${lastAction.card.name}${lastAction.card.damage || lastAction.target ? ` → ${targetText}` : ''}</strong>`; banner.classList.remove('attack'); void banner.offsetWidth; banner.classList.add('attack'); }
   else banner.innerHTML='<span>⚔</span><strong>Waiting for the next move</strong>';
   const stage=$('played-card-stage'), played=game.lastPlayedCard;
-  if(played) {
+  const revealActive=Boolean(played && Date.now()<(game.revealUntil || 0));
+  if(revealActive) {
     if(!stage.querySelector(`[data-reveal-id="${CSS.escape(played.id)}"]`)) {
       stage.innerHTML='';
       const reveal=document.createElement('article'); reveal.className=`reveal-card ${played.role.toLowerCase()}`; reveal.dataset.revealId=played.id;
@@ -498,8 +587,9 @@ function render() {
       const details=document.createElement('small'); details.textContent=played.text || played.symbol;
       reveal.append(topline,title,art,details); stage.append(reveal);
     }
-    if(seenPlayedCardId!==played.id) { seenPlayedCardId=played.id; gameFeedback(played.art==='⚔'||played.art==='☄'?'attack':'card'); stage.classList.remove('active'); void stage.offsetWidth; stage.classList.add('active'); scheduleGameAction(()=>{ if(seenPlayedCardId===played.id) stage.classList.remove('active'); },1900); }
-  } else stage.innerHTML='';
+    if(seenPlayedCardId!==played.id) { seenPlayedCardId=played.id; if(played.art==='⚔'||played.art==='☄') vibrateGame('attack'); else playGameSound('card'); stage.classList.remove('active'); void stage.offsetWidth; stage.classList.add('active'); scheduleGameAction(()=>{ if(seenPlayedCardId===played.id) stage.classList.remove('active'); },1900); }
+    scheduleGameAction(()=>{ if(game?.lastPlayedCard?.id===played.id) { stage.innerHTML=''; stage.classList.remove('active'); } },Math.max(0,game.revealUntil-Date.now()));
+  } else { stage.innerHTML=''; stage.classList.remove('active'); }
   els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0); button.draggable=!button.disabled; button.addEventListener('dragstart',(event)=>{ if(button.disabled){event.preventDefault();return;} event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',card.id); $('played-card-stage').classList.add('drop-ready'); }); button.addEventListener('dragend',()=>$('played-card-stage').classList.remove('drop-ready')); const image=cardArtworkPath(card); button.innerHTML=`<div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${card.owner}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
   playVisualEffects();
   if(played && Date.now()<(game.revealUntil||0) && canControlTurn() && game.required>0) scheduleGameAction(()=>{ if(game && !game.finished) render(); },Math.max(0,game.revealUntil-Date.now()));
@@ -508,7 +598,7 @@ function renderCardLibrary() {
   $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((template) => { const card={...template,owner:character.id,role:character.role}; const image=cardArtworkPath(card); return `<article class="card library-card ${character.id} ${card.type}" aria-label="${card.name}, ${cardText(card)}"><div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${character.id}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div><div class="card-footer"><span>×${card.count} in deck</span><b>${card.type.toUpperCase()}</b></div></article>`; }).join('')}</div></section>`).join('');
 }
 document.querySelectorAll('.player-count').forEach((button)=>button.addEventListener('click',()=>{ selectedPlayers=Number(button.dataset.players); document.querySelectorAll('.player-count').forEach((other)=>other.classList.toggle('selected',other===button)); renderNameFields(); }));
-document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ const character=button.dataset.character; setRandomCharacter(false); if(gameMode==='online' && onlineRoom) { socket.emit('change-character',{code:onlineRoom.code,character},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; }); return; } setSelectedCharacter(character); }));
+document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ const character=button.dataset.character; if(gameMode==='online' && onlineRoom) { socket.emit('change-character',{code:onlineRoom.code,character},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; }); return; } setSelectedCharacter(character); }));
 function playerIdentity() { return currentAccount?.username || $('player-name-0')?.value.trim() || 'Player'; }
 function leaveOnlineMatch() {
   if(gameMode!=='online' || !onlineRoom || !socket) return;
@@ -521,13 +611,14 @@ function leaveOnlineMatch() {
   setStatus('You left the online match.');
 }
 function renderOnlineLobby(room) {
-  onlineRoom={code:room.code,hostId:room.hostId,limit:room.limit}; onlinePlayers=room.players;
+  onlineRoom={code:room.code,hostId:room.hostId,limit:room.limit,randomCharacter:Boolean(room.randomCharacter)}; onlinePlayers=room.players;
+  randomCharacter=onlineRoom.randomCharacter;
   syncRandomCharacterUi();
   updateBattleControls();
   const self=room.players.find((player)=>player.id===socket.id); if(self) setSelectedCharacter(self.character || null);
   const owners=new Map(room.players.filter((player)=>player.character && !player.left).map((player)=>[player.character,player]));
-  document.querySelectorAll('#lobby-character-grid .character-choice').forEach((button)=>{ const owner=owners.get(button.dataset.character); const unavailable=Boolean(owner && owner.id!==socket.id); button.disabled=unavailable; button.title=owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; button.classList.toggle('selected',button.dataset.character===selectedCharacter); let badge=button.querySelector('.claimed-by'); if(!badge) { badge=document.createElement('small'); badge.className='claimed-by'; button.querySelector('span:last-child').append(badge); } badge.textContent=owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; badge.classList.toggle('hidden',!owner); });
-  const host=room.hostId===socket.id; const active=room.players.filter((player)=>!player.left); const charactersReady=active.length===room.limit && active.every((player)=>player.character) && new Set(active.map((player)=>player.character)).size===active.length; const allReady=charactersReady && active.every((player)=>player.ready); const list=$('lobby-page-list'); list.innerHTML=''; room.players.forEach((player,index)=>{ const character=characters.find((item)=>item.id===player.character); const item=document.createElement('li'); const identity=document.createElement('span'); identity.textContent=`${index===0?'👑 ':''}${player.name}${player.id===socket.id?' (You)':''}`; const detail=document.createElement('span'); detail.className='lobby-player-detail'; const characterLabel=document.createElement('small'); characterLabel.textContent=character?.name || 'No character selected'; const readyLabel=document.createElement('small'); readyLabel.className=player.ready?'player-ready':'player-not-ready'; readyLabel.textContent=player.ready?'Ready':'Not ready'; detail.append(characterLabel,readyLabel); item.append(identity,detail); if(host && player.id!==socket.id){const kick=document.createElement('button');kick.type='button';kick.className='button ghost lobby-kick-button';kick.textContent='Kick';kick.setAttribute('aria-label',`Kick ${player.name}`);kick.onclick=()=>socket.emit('kick-player',{code:room.code,playerId:player.id},(result)=>{if(!result.ok)$('lobby-page-status').textContent=result.error;});item.append(kick);} list.append(item); }); for(let seat=active.length;seat<room.limit;seat++){const item=document.createElement('li');item.className='empty';item.textContent=`Open seat ${seat+1}`;list.append(item);}
+  document.querySelectorAll('#lobby-character-grid .character-choice').forEach((button)=>{ const owner=owners.get(button.dataset.character); const unavailable=Boolean(owner && owner.id!==socket.id); button.disabled=Boolean(room.randomCharacter) || unavailable; button.title=room.randomCharacter?'Characters are assigned randomly by the house rule.':owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; button.classList.toggle('selected',button.dataset.character===selectedCharacter); let badge=button.querySelector('.claimed-by'); if(!badge) { badge=document.createElement('small'); badge.className='claimed-by'; button.querySelector('span:last-child').append(badge); } badge.textContent=owner?`Picked by ${owner.name}${owner.id===socket.id?' (you)':''}`:''; badge.classList.toggle('hidden',!owner || Boolean(room.randomCharacter)); });
+  const host=room.hostId===socket.id; const active=room.players.filter((player)=>!player.left); const charactersReady=active.length===room.limit && (room.randomCharacter || (active.every((player)=>player.character) && new Set(active.map((player)=>player.character)).size===active.length)); const allReady=charactersReady && active.every((player)=>player.ready); const randomRule=$('lobby-random-character-toggle'); randomRule.disabled=!host; randomRule.title=host?'Set random characters for everyone in this room.':'Only the host can change room rules.'; const list=$('lobby-page-list'); list.innerHTML=''; room.players.forEach((player,index)=>{ const character=characters.find((item)=>item.id===player.character); const item=document.createElement('li'); const identity=document.createElement('span'); identity.textContent=`${index===0?'👑 ':''}${player.name}${player.id===socket.id?' (You)':''}`; const detail=document.createElement('span'); detail.className='lobby-player-detail'; const characterLabel=document.createElement('small'); characterLabel.textContent=character?.name || 'No character selected'; const readyLabel=document.createElement('small'); readyLabel.className=player.ready?'player-ready':'player-not-ready'; readyLabel.textContent=player.ready?'Ready':'Not ready'; detail.append(characterLabel,readyLabel); item.append(identity,detail); if(host && player.id!==socket.id){const kick=document.createElement('button');kick.type='button';kick.className='button ghost lobby-kick-button';kick.textContent='Kick';kick.setAttribute('aria-label',`Kick ${player.name}`);kick.onclick=()=>socket.emit('kick-player',{code:room.code,playerId:player.id},(result)=>{if(!result.ok)$('lobby-page-status').textContent=result.error;});item.append(kick);} list.append(item); }); for(let seat=active.length;seat<room.limit;seat++){const item=document.createElement('li');item.className='empty';item.textContent=`Open seat ${seat+1}`;list.append(item);}
   $('lobby-ready-button').classList.remove('hidden'); $('lobby-ready-button').disabled=!self?.character; $('lobby-ready-button').textContent=self?.ready?'Not ready':'Ready'; $('lobby-ready-button').classList.toggle('is-ready',Boolean(self?.ready)); $('lobby-ready-button').onclick=()=>socket.emit('set-ready',{code:room.code,ready:!self?.ready},(result)=>{if(!result.ok)$('lobby-page-status').textContent=result.error;});
   $('lobby-page-title').textContent=`Room ${room.code}`; $('lobby-page-count').textContent=`${active.length}/${room.limit}`; $('lobby-page-status').textContent=host ? `Share code ${room.code}. Fill every seat and wait for everyone to be ready.` : `You joined room ${room.code}. Choose a character and press Ready.`; $('lobby-start-button').classList.toggle('hidden',!host); $('lobby-start-button').disabled=!allReady; $('lobby-start-note').textContent=host ? (active.length<room.limit?'Every seat must be filled before the battle can start.':!charactersReady?'Every player must choose a different character.':!allReady?'Waiting for every player to press Ready.':'Everyone is ready. Start the battle!') : 'The host can start once every seat is filled and all players are ready.';
   els.setup.classList.add('hidden'); $('online-room-page').classList.remove('hidden');
@@ -537,13 +628,16 @@ function connectOnline() {
   socket=io();
   socket.on('lobby-state',renderOnlineLobby);
   socket.on('kicked-from-room',()=>{ onlineRoom=null; onlinePlayers=[]; setSelectedCharacter(null); $('online-room-page').classList.add('hidden'); els.setup.classList.remove('hidden'); $('room-status').textContent='The host removed you from the room.'; updateBattleControls(); });
-  socket.on('online-game-state',({state,players})=>{ if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; resultFeedbackMatchId=null; seenVisualEffectIds.clear(); } game=state; onlinePlayers=players; localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id); updateBattleControls(); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { stopTurnTimer(); showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
+  socket.on('online-game-state',({state,players})=>{ const enteringBattle=els.battle.classList.contains('hidden'); if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; resultFeedbackMatchId=null; seenVisualEffectIds.clear(); onlineRematchVotes=[]; } game=state; syncBackgroundMusic(); onlinePlayers=players; localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id); updateBattleControls(); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); if(enteringBattle) window.scrollTo(0,0); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { stopTurnTimer(); showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
+  socket.on('rematch-vote-state',({votes,players})=>{ onlineRematchVotes=votes; onlinePlayers=players; if(game?.finished) renderRematchVoteStatus(); });
+  socket.on('rematch-ready',()=>{ if(gameMode==='online' && onlineRoom?.hostId===socket.id && game?.finished) startGame(); });
 }
 document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; updateBattleControls(); document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); const online=gameMode==='online'; $('online-lobby').classList.toggle('hidden',!online); $('battle-size-heading').textContent=online?'Choose online room size':'Choose the battle size'; if(online) connectOnline(); else { document.querySelectorAll('.character-choice,.player-count').forEach((control)=>{ control.disabled=false; control.title=''; }); } }));
-$('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:randomCharacter?'random':null,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
-$('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:randomCharacter?'random':null},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
+$('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:randomCharacter?'random':null,randomCharacter,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
+$('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('room-code').value.trim(),name:playerIdentity(),character:null},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
 $('random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
 $('lobby-random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
+$('ready-next-button').onclick=()=>{ if(gameMode==='online' && onlineRoom) socket.emit('rematch-vote',{code:onlineRoom.code},(result)=>{ if(!result.ok) $('ready-vote-status').textContent=result.error; }); };
 $('start-button').onclick=startGame; $('lobby-start-button').onclick=startGame; $('restart-button').onclick=()=>{ if(gameMode==='online') return; stopCurrentGame(); }; $('leave-online-button').onclick=leaveOnlineMatch; $('leave-room-button').onclick=()=>{ if(gameMode==='online') leaveOnlineMatch(); else stopCurrentGame(); }; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
 $('leave-battle-button').onclick=()=>{ if(gameMode==='online') leaveOnlineMatch(); else stopCurrentGame(); };
 const navToggle=$('nav-toggle'),topbar=document.querySelector('.topbar');
@@ -557,9 +651,16 @@ playDropZone.addEventListener('dragover',(event)=>{ if(canControlTurn() && game 
 playDropZone.addEventListener('dragleave',(event)=>{ if(!playDropZone.contains(event.relatedTarget)) playDropZone.classList.remove('drag-over'); });
 playDropZone.addEventListener('drop',(event)=>{ event.preventDefault(); playDropZone.classList.remove('drag-over','drop-ready'); const cardId=event.dataTransfer.getData('text/plain'); const human=game && (gameMode==='online'?game.players[localPlayerIndex]:game.players[0]); const card=human?.hand.find((item)=>item.id===cardId); if(card) humanPlay(card); });
 $('house-rules-toggle').addEventListener('change',updateHouseRuleLabel);
-$('sound-toggle').addEventListener('click',()=>{ soundEnabled=!soundEnabled; try { localStorage.setItem('mayhem-sound',String(soundEnabled)); } catch {} updateFeedbackControls(); if(soundEnabled) playGameSound('card'); });
-$('vibration-toggle').addEventListener('click',()=>{ if(typeof navigator.vibrate!=='function') return; vibrationEnabled=!vibrationEnabled; try { localStorage.setItem('mayhem-vibration',String(vibrationEnabled)); } catch {} updateFeedbackControls(); if(vibrationEnabled) vibrateGame('card'); });
-updateFeedbackControls();
+$('settings-button').onclick=()=>{ updateSettingsControls(); $('settings-dialog').showModal(); };
+$('close-settings').onclick=()=>$('settings-dialog').close();
+$('music-enabled').addEventListener('change',(event)=>{ musicEnabled=event.target.checked; saveUiPreference('mayhem-music',musicEnabled); if(musicEnabled) unlockGameAudio(); else stopBackgroundMusic(); updateSettingsControls(); });
+$('sound-enabled').addEventListener('change',(event)=>{ soundEnabled=event.target.checked; saveUiPreference('mayhem-sound',soundEnabled); if(soundEnabled) { unlockGameAudio(); playGameSound('card'); $('sound-test-status').textContent=''; } updateSettingsControls(); });
+$('vibration-enabled').addEventListener('change',(event)=>{ vibrationEnabled=event.target.checked; saveUiPreference('mayhem-vibration',vibrationEnabled); if(vibrationEnabled) { vibrateGame('card'); $('vibration-test-status').textContent='Haptic test sent.'; } else { try { navigator.vibrate?.(0); } catch {} $('vibration-test-status').textContent=''; } updateSettingsControls(); });
+  $('music-volume').addEventListener('input',(event)=>{ musicVolume=Number(event.target.value)/100; saveUiPreference('mayhem-music-volume',musicVolume); updateSettingsControls(); if(activeMusicTrack) activeMusicTrack.volume=musicVolume; if(musicVolume===0) stopBackgroundMusic(); else if(musicEnabled) startBackgroundMusic(); });
+$('effects-volume').addEventListener('input',(event)=>{ soundVolume=Number(event.target.value)/100; saveUiPreference('mayhem-sound-volume',soundVolume); updateSettingsControls(); });
+$('test-sound').onclick=()=>{ unlockGameAudio(); if(!soundEnabled) { $('sound-test-status').textContent='Turn on game sound effects first.'; return; } playGameSound('attack'); $('sound-test-status').textContent='Sound test played.'; };
+$('test-vibration').onclick=()=>{ if(!vibrationEnabled || typeof navigator.vibrate!=='function') return; try { const started=navigator.vibrate(120); $('vibration-test-status').textContent=started===false?'This device did not start vibration.':'Haptic test sent.'; } catch { $('vibration-test-status').textContent='Vibration is unavailable.'; } };
+updateSettingsControls();
 $('card-library-button').onclick=()=>{ renderCardLibrary(); $('card-library-dialog').showModal(); }; $('close-card-library').onclick=()=>$('card-library-dialog').close();
 $('account-button').onclick=()=>{ if(currentAccount) { updateAccountUi(); $('account-dialog').showModal(); } else showAccountDialog('register'); };
 $('close-account').onclick=()=>$('account-dialog').close();
