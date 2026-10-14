@@ -13,6 +13,7 @@
       @media(max-width:700px){body:has(.battle:not(.hidden)){overflow:hidden}body:has(.battle:not(.hidden)) .app-shell{height:100dvh;padding:8px 10px;overflow:hidden;display:flex;flex-direction:column}body:has(.battle:not(.hidden)) .topbar{align-items:flex-start;flex-direction:column;gap:4px;min-height:0}body:has(.battle:not(.hidden)) h1{font-size:1.55rem}body:has(.battle:not(.hidden)) .eyebrow{font-size:.56rem}body:has(.battle:not(.hidden)) .topbar-actions{width:100%;flex-direction:row;gap:5px}body:has(.battle:not(.hidden)) .topbar-actions .button{flex:1;padding:6px 3px;font-size:.64rem;white-space:nowrap}body:has(.battle:not(.hidden)) .status-strip{width:100%;margin-top:6px;padding:6px 8px;align-items:center;flex-direction:row;gap:6px;font-size:.65rem}body:has(.battle:not(.hidden)) #turn-status{max-width:43%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body:has(.battle:not(.hidden)) .turn-timer{gap:3px;font-size:.65rem}body:has(.battle:not(.hidden)) .turn-timer i{width:38px;height:5px}body:has(.battle:not(.hidden)) .counter{margin-left:auto;white-space:nowrap;font-size:.65rem}body:has(.battle:not(.hidden)) .battle{display:grid;flex:1;min-height:0;margin-top:6px;overflow:hidden;grid-template-rows:minmax(48px,.6fr) 66px 27px minmax(0,2.7fr) 29px}body:has(.battle:not(.hidden)) .opponents{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0;min-height:0}body:has(.battle:not(.hidden)) .combatant{min-width:0;padding:5px;border-radius:8px}body:has(.battle:not(.hidden)) .combatant h3{overflow:hidden;font-size:.67rem;white-space:nowrap;text-overflow:ellipsis}body:has(.battle:not(.hidden)) .combatant h3 small{display:none}body:has(.battle:not(.hidden)) .combatant .mini-info{gap:4px;margin-top:2px;font-size:.57rem}body:has(.battle:not(.hidden)) .healthbar{height:4px;margin-top:4px}body:has(.battle:not(.hidden)) .mini-defense{margin-top:3px;font-size:.55rem;white-space:nowrap;overflow:hidden}body:has(.battle:not(.hidden)) .table-area{min-height:0;grid-template-columns:58px minmax(0,1fr) 58px;gap:2px;padding:2px 4px;border-radius:10px 10px 0 0}body:has(.battle:not(.hidden)) .deck-zone{gap:0;font-size:.57rem}body:has(.battle:not(.hidden)) .deck-stack,body:has(.battle:not(.hidden)) .discard-card{transform:scale(.45);margin:-21px}body:has(.battle:not(.hidden)) .battle-message{font-size:.76rem;line-height:1.15}body:has(.battle:not(.hidden)) .action-banner{min-height:27px;padding:3px 7px;font-size:.62rem;gap:5px}body:has(.battle:not(.hidden)) .action-banner span{width:18px;height:18px}body:has(.battle:not(.hidden)) .action-banner strong{font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body:has(.battle:not(.hidden)) .player-board{min-height:0;padding:6px 8px;overflow:hidden;border-radius:0 0 10px 10px}body:has(.battle:not(.hidden)) .player-heading{align-items:center;flex-direction:row;min-height:30px;gap:6px}body:has(.battle:not(.hidden)) .player-heading h2{font-size:1rem}body:has(.battle:not(.hidden)) .board-stats{font-size:.58rem;gap:5px;white-space:nowrap}body:has(.battle:not(.hidden)) .defense-row{min-height:20px;padding:2px 0;overflow:hidden}body:has(.battle:not(.hidden)) .defense-token{padding:3px 5px;font-size:.56rem;white-space:nowrap}body:has(.battle:not(.hidden)) .hand-label{margin:1px 0;font-size:.62rem}body:has(.battle:not(.hidden)) .hand{height:calc(100% - 51px);min-height:0;padding:2px 0;gap:6px;overflow-x:auto;overflow-y:hidden}body:has(.battle:not(.hidden)) .card{flex-basis:92px;min-height:132px;border-width:2px}body:has(.battle:not(.hidden)) .card-topline{padding:2px 4px;font-size:.35rem}body:has(.battle:not(.hidden)) .card-nameplate{min-height:21px;padding:2px 3px}body:has(.battle:not(.hidden)) .card h3{font-size:.61rem}body:has(.battle:not(.hidden)) .card-art{height:26px;margin:0 4px;border-width:1px;font-size:1rem}body:has(.battle:not(.hidden)) .card-art span{width:20px;height:20px}body:has(.battle:not(.hidden)) .card-effects{padding:2px 4px}.card-effects span{min-height:11px}body:has(.battle:not(.hidden)) .card-effects span{gap:2px;font-size:.37rem}body:has(.battle:not(.hidden)) .card-effects b{width:9px;font-size:.5rem}body:has(.battle:not(.hidden)) .card-footer{padding:2px 3px;font-size:.3rem}body:has(.battle:not(.hidden)) .card-footer b{font-size:.3rem}body:has(.battle:not(.hidden)) .log-panel{min-height:0;margin-top:4px;overflow:hidden}body:has(.battle:not(.hidden)) .log-header{padding:4px 8px}body:has(.battle:not(.hidden)) .log-header h2{font-size:.68rem}body:has(.battle:not(.hidden)) .log-panel ol{display:none}}
       .post-match-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.post-match-actions .button{margin:0}@media(max-width:520px){.post-match-actions .button{flex:1}}
     </style>
+    <link rel="stylesheet" href="table-theme.css" />
   </head>
   <body>
     <main class="app-shell">
@@ -21,7 +22,10 @@
           <p class="eyebrow">Pass-and-play card battle</p>
           <h1>Mayhem Arena</h1>
         </div>
-        <div class="topbar-actions">
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="topbar-actions">
+          <span aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <div class="topbar-actions" id="topbar-actions">
           <button class="button ghost" id="account-button" type="button">Create account / Sign in</button>
           <button class="button ghost" id="card-library-button" type="button">Card library</button>
           <button class="button ghost" id="rules-button" type="button">How to play</button>
@@ -36,6 +40,7 @@
         <div id="turn-status">Choose a character and game size to begin.</div>
         <div class="turn-timer" id="turn-timer" aria-label="Turn timer"><span id="timer-label">60s</span><i><b id="timer-bar"></b></i></div>
         <div class="counter" id="action-counter">Cards to play: —</div>
+        <button class="button ghost leave-battle-button hidden" id="leave-battle-button" type="button" aria-label="Leave battle" title="Leave battle">Leave</button>
       </section>
 
       <section class="setup-card" id="setup-panel">
@@ -65,12 +70,6 @@
           <button class="character-choice paladin" data-character="lia" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Lia the Radiant</strong><small>Paladin · strikes and defense</small></span></button>
           <button class="character-choice rogue" data-character="oriax" type="button"><span class="character-portrait" aria-hidden="true"></span><span><strong>Oriax the Clever</strong><small>Rogue · tricks and dual-wielding</small></span></button>
         </div>
-        <label class="toggle-row random-character-row"><span><strong>Random character</strong><small>Pick a random character for each new battle or an available one in an online room.</small></span><span class="switch-control"><input id="random-character-toggle" type="checkbox" role="switch" /><i aria-hidden="true"></i><b id="random-character-state">OFF</b></span></label>
-        <section class="drive-artwork" aria-label="Game artwork from the shared card reference photos">
-          <img src="assets/character-roster.jpg" alt="The four available character cards: Oriax, Lia, Sutha, and Azzan" />
-          <img src="IMG_5060.jpg" alt="Shared card reference showing the action icons and mighty powers" />
-          <img src="IMG_5091.jpg" alt="Shared purple card reference for Rogue actions and mighty powers" />
-        </section>
         <h3 class="setup-subheading" id="battle-size-heading">Choose the battle size</h3>
         <div class="setup-actions">
           <button class="player-count selected" data-players="2" type="button">2 players</button>
@@ -80,6 +79,7 @@
         <fieldset class="rule-toggles">
           <legend>House rules</legend>
           <label class="toggle-row"><span><strong>Use house rules</strong><small>Start with 3 cards. No turn draw: draw only from a card effect or draw 2 automatically when you have 1 card left.</small></span><span class="switch-control"><input id="house-rules-toggle" type="checkbox" role="switch" checked /><i aria-hidden="true"></i><b id="house-rules-state">ON</b></span></label>
+          <label class="toggle-row random-character-row"><span><strong>Random character</strong><small>Pick a random character for each new battle or an available one in an online room.</small></span><span class="switch-control"><input id="random-character-toggle" type="checkbox" role="switch" /><i aria-hidden="true"></i><b id="random-character-state">OFF</b></span></label>
         </fieldset>
         <button class="button primary" id="start-button" type="button">Begin battle</button>
       </section>

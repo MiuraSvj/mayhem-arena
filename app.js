@@ -13,10 +13,10 @@ const characters = [
   ]},
 ];
 const cardArtwork = {
-  lia: {'For Even More Justice!':1,'Divine Shield':2,'High Charisma':3,'Finger Wag of Judgement':4,'Divine Smite':5,'Spinning Parry':6,'Divine Inspiration':7,'Banishing Smite':8},
-  oriax: {'Two Thrown Daggers':1,'My Little Friend':2,'Winged Serpent':3,'Cunning Action':4,'Stolen Potion':5,'Sneak Attack!':6,'Pick Pocket':7,'Clever Disguise':8},
-  sutha: {'Rage!':1,'Riff':2,'Open the Armory':3,'Two Axes are Better Than One':4,'Snack Time':5,'Whirling Axes':6,'Mighty Toss':7,'Battle Roar':8},
-  azzan: {'Burning Hands':1,'Stoneskin':2,'Knowledge is Power':3,'Speed of Thought':4,'Magic Missile':5,'Fireball':6,'Charm':7,'Vampiric Touch':8}
+  lia: {'For Even More Justice!':1,'For Justice!':1,'Fighting Words':5,'For the Most Justice!':8,'Divine Shield':2,'High Charisma':3,'Finger Wag of Judgement':4,'Divine Smite':5,'Spinning Parry':6,'Divine Inspiration':7,'Banishing Smite':8,'Cure Wounds':3,'Fluffy':2},
+  oriax: {'One Thrown Dagger':1,'Two Thrown Daggers':1,'All The Thrown Daggers':1,'My Little Friend':2,'Winged Serpent':3,'The Goon Squad':3,'Cunning Action':4,'Stolen Potion':5,'Sneak Attack!':6,'Pick Pocket':7,'Clever Disguise':8,'Even More Daggers':1},
+  sutha: {'Big Axe is Best Axe':1,'Rage!':1,'Head Butt':1,'Brutal Punch':1,'Riff':2,'Raff':2,'Spiked Shield':2,'Bag of Rats':2,'Open the Armory':3,'Two Axes are Better Than One':4,'Snack Time':5,'Flex':5,'Whirling Axes':6,'Mighty Toss':7,'Battle Roar':8},
+  azzan: {'Burning Hands':1,'Stoneskin':2,'Shield':2,'Knowledge is Power':3,'Speed of Thought':4,'Magic Missile':5,'Lightning Bolt':5,'Fireball':6,'Charm':7,'Mirror Image':7,'Evil Sneer':7,'Vampiric Touch':8}
 };
 function cardArtworkPath(card) { const imageNumber=cardArtwork[card.owner]?.[card.name]; return imageNumber ? `/assets/card-art/${card.owner}-${imageNumber}.webp` : null; }
 const $ = (id) => document.getElementById(id);
@@ -39,6 +39,7 @@ let lastHitPlayer = null;
 let lastAction = null;
 let seenPlayedCardId = null;
 let seenFirstRollMatchId = null;
+const seenVisualEffectIds = new Set();
 let profileMatchSaved = false;
 let randomCharacter = false;
 let audioContext = null;
@@ -90,6 +91,11 @@ function updateBattleControls() {
   const inOnlineMatch=gameMode==='online' && Boolean(onlineRoom);
   $('restart-button').classList.toggle('hidden',gameMode==='online');
   $('leave-online-button').classList.toggle('hidden',!inOnlineMatch);
+  const leaveBattle=$('leave-battle-button');
+  leaveBattle.classList.toggle('hidden',!game);
+  const leaveLabel=gameMode==='online'?'Leave online match':'Leave battle';
+  leaveBattle.setAttribute('aria-label',leaveLabel);
+  leaveBattle.title=leaveLabel;
 }
 function stopCurrentGame() {
   stopTurnTimer(); clearGameActions(); game=null; pendingCard=null; lastAction=null; lastHitPlayer=null;
@@ -157,11 +163,39 @@ function makeDeck(character) { return shuffle(character.cards.flatMap((template)
 function makePlayer(character, isHuman = false) { return { name:character.name, role:character.role, character, isHuman, hp:10, deck:makeDeck(character), discard:[], hand:[], defenses:[], alive:true, protected:false, stats:{ cardsPlayed:0, damageDealt:0, damageTaken:0, damageBlocked:0, healing:0, shieldsRaised:0 } }; }
 function log(message) { const item = document.createElement('li'); item.textContent = message; els.log.prepend(item); }
 function activePlayers() { return game.players.filter((player) => player.alive); }
+function queueVisualEffect(player,kind,label='') {
+  if(!game || !player) return;
+  if(!Array.isArray(game.visualEffects)) game.visualEffects=[];
+  const playerIndex=game.players.indexOf(player);
+  if(playerIndex<0) return;
+  game.visualEffects.push({id:`${game.matchId}-${Date.now()}-${Math.random()}`,playerIndex,kind,label:String(label),expiresAt:Date.now()+1800});
+  if(game.visualEffects.length>32) game.visualEffects.splice(0,game.visualEffects.length-32);
+}
+function playVisualEffects() {
+  if(!game?.visualEffects?.length) return;
+  const localIndex=gameMode==='online' ? localPlayerIndex : 0;
+  const icons={lightning:'⚡',blast:'💥',slash:'⚔',shield:'🛡',block:'🛡',heal:'💚',draw:'🃏',discard:'🂠',swap:'⇄',shatter:'✦',steal:'⇣',ward:'◉',reclaim:'↶',extra:'⚡',knockout:'💫'};
+  game.visualEffects.forEach((effect)=>{
+    if(seenVisualEffectIds.has(effect.id)) return;
+    seenVisualEffectIds.add(effect.id);
+    if(Date.now()>effect.expiresAt) return;
+    const target=effect.playerIndex===localIndex ? $('player-board') : document.querySelector(`.combatant[data-player-index="${effect.playerIndex}"]`);
+    if(!target) return;
+    const burst=document.createElement('div'); burst.className=`combat-fx fx-${effect.kind}`; burst.setAttribute('aria-hidden','true');
+    const mark=document.createElement('span'); mark.className='fx-mark'; mark.textContent=icons[effect.kind] || '✦'; burst.append(mark);
+    if(effect.label) { const label=document.createElement('small'); label.textContent=effect.label; burst.append(label); }
+    target.append(burst);
+    scheduleGameAction(()=>burst.remove(),1450);
+  });
+}
 function draw(player, count = 1) {
+  const before=player.hand.length;
   for (let i=0;i<count;i++) {
     if (!player.deck.length && player.discard.length) { player.deck = shuffle(player.discard); player.discard = []; log(`${player.name} reshuffles their discard pile.`); }
     if (player.deck.length) player.hand.push(player.deck.pop());
   }
+  const drawn=player.hand.length-before;
+  if(drawn) queueVisualEffect(player,'draw',`+${drawn}`);
 }
 function refillLowHand(player) {
   if(player.hand.length>1 || !player.alive) return;
@@ -232,7 +266,8 @@ function startGame() {
   clearGameActions(); stopTurnTimer();
   const players=roster.map((entry,index)=>({ ...makePlayer(characters.find((character)=>character.id===entry.character), gameMode==='online' || index===0), name:entry.name, ...(entry.id ? {socketId:entry.id} : {}) }));
   const firstRoll=rollFirstPlayer(players);
-  game = { matchId:crypto.randomUUID(), players, current:firstRoll.winnerIndex, firstRoll, firstRollEndsAt:Date.now()+2200, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[] };
+  game = { matchId:crypto.randomUUID(), players, current:firstRoll.winnerIndex, firstRoll, firstRollEndsAt:Date.now()+2200, required:0, started:false, turn:1, finished:false, rules, pendingDamage:[], visualEffects:[] };
+  seenVisualEffectIds.clear();
   seenFirstRollMatchId=null;
   if(gameMode==='online') localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id);
   game.players.forEach((player) => draw(player,rules.openingHand ? 3 : 2));
@@ -248,7 +283,7 @@ function beginTurn() {
   let player = playerAtTurn();
   if (!player.alive) return nextTurn();
   startTurnTimer();
-  if (player.protected) { player.protected=false; log(`${player.name}'s Clever Disguise fades.`); }
+  if (player.protected) { player.protected=false; queueVisualEffect(player,'ward','FADED'); log(`${player.name}'s Clever Disguise fades.`); }
   if(game.rules.houseRules!==true) { draw(player,1); log(`${player.name} draws a card.`); }
   refillLowHand(player);
   game.required = 1; game.started = true;
@@ -286,7 +321,7 @@ function showResults(winner) {
   }
 }
 function damage(target, amount, attacker) {
-  if (target.protected && target !== attacker) { log(`${target.name}'s disguise ignores ${attacker.name}'s card effect.`); return; }
+  if (target.protected && target !== attacker) { queueVisualEffect(target,'ward','BLOCKED'); log(`${target.name}'s disguise ignores ${attacker.name}'s card effect.`); return; }
   let remaining = amount;
   for (const defense of [...target.defenses]) {
     if (!remaining) break;
@@ -294,9 +329,10 @@ function damage(target, amount, attacker) {
     if (!defense.shield) { target.defenses.splice(target.defenses.indexOf(defense),1); target.discard.push(defense); log(`${target.name}'s ${defense.name} breaks.`); }
   }
   if (remaining) { target.hp = Math.max(0,target.hp-remaining); target.stats.damageTaken += remaining; attacker.stats.damageDealt += remaining; log(`${attacker.name} deals ${remaining} damage to ${target.name}.`); }
-  else log(`${target.name}'s defenses absorb ${amount} damage.`);
+  if (amount-remaining>0) queueVisualEffect(target,'block',`−${amount-remaining}`);
+  if (!remaining) log(`${target.name}'s defenses absorb ${amount} damage.`);
   if (remaining) { lastHitPlayer=target; scheduleGameAction(()=>{ lastHitPlayer=null; render(); },600); }
-  if (target.hp === 0) { target.alive=false; target.hand=[]; log(`${target.name} is knocked out!`); }
+  if (target.hp === 0) { target.alive=false; target.hand=[]; queueVisualEffect(target,'knockout','KNOCKED OUT'); log(`${target.name} is knocked out!`); }
 }
 function queueDamage(target, amount, attacker) {
   game.pendingDamage.push({ target, amount, attacker });
@@ -311,6 +347,7 @@ function resolvePendingDamage() {
 function effectSymbols(card) { const result=[]; if(card.damage) result.push(`${card.area?'☄':'⚔'} ${card.damage}${card.areaSelf?' all':''}`); if(card.shield) result.push(`🛡 ${card.shield}`); if(card.heal) result.push(`♥ ${card.heal}`); if(card.healPerOpponent) result.push('♥ × foes'); if(card.draw) result.push(`▣ ${card.draw}`); if(card.again) result.push(`⚡ ${card.again}`); if(card.swap) result.push('⇄ HP'); if(card.destroyDefense) result.push('✦ break'); if(card.destroyAllDefense) result.push('✦ all break'); if(card.stealDefense) result.push('⇣ shield'); if(card.discardTarget) result.push('✕ discard'); if(card.discardHandDraw) result.push(`↻ ${card.discardHandDraw}`); if(card.reclaim) result.push('↶ reclaim'); if(card.protected) result.push('◉ ward'); if(card.stealTop) result.push('⇣ card'); return result.join('  '); }
 function cardActionSymbols(card) { const result=[]; if(card.damage) result.push(card.area?'☄':'⚔'); if(card.shield) result.push('🛡'); if(card.heal || card.healPerOpponent) result.push('♥'); if(card.again) result.push('⚡'); if(card.draw) result.push('🃏'); if(card.swap || card.destroyDefense || card.destroyAllDefense || card.stealDefense || card.discardTarget || card.discardHandDraw || card.reclaim || card.protected || card.stealTop) result.push('✦'); return result.join(' ') || '✦'; }
 function effectRows(card) { const rows=[]; if(card.damage) rows.push(`<span><b>${card.area?'☄':'⚔'}</b>${card.area ? `Deal ${card.damage} to ${card.areaSelf?'every player':'each opponent'}` : `Deal ${card.damage} damage`}</span>`); if(card.shield) rows.push(`<span><b>🛡</b>Block ${card.shield} damage</span>`); if(card.heal) rows.push(`<span><b>♥</b>Recover ${card.heal} HP</span>`); if(card.healPerOpponent) rows.push('<span><b>♥</b>Recover 1 HP per opponent</span>'); if(card.draw) rows.push(`<span><b>▣</b>Draw ${card.draw} card${card.draw>1?'s':''}</span>`); if(card.again) rows.push(`<span><b>⚡</b>Play ${card.again===1?'an extra card':`${card.again} extra cards`}</span>`); if(card.swap) rows.push('<span class="mighty"><b>✦</b>Swap HP with an opponent</span>'); if(card.destroyDefense) rows.push('<span class="mighty"><b>✦</b>Destroy an active defense</span>'); if(card.destroyAllDefense) rows.push('<span class="mighty"><b>✦</b>Destroy every defense</span>'); if(card.stealDefense) rows.push('<span class="mighty"><b>⇣</b>Take an active defense</span>'); if(card.discardTarget) rows.push('<span class="mighty"><b>✕</b>Target discards a card</span>'); if(card.discardHandDraw) rows.push(`<span class="mighty"><b>↻</b>All discard, then draw ${card.discardHandDraw}</span>`); if(card.reclaim) rows.push('<span class="mighty"><b>↶</b>Choose a discard to return</span>'); if(card.protected) rows.push('<span class="mighty"><b>◉</b>Ignore effects until next turn</span>'); if(card.stealTop) rows.push('<span class="mighty"><b>⇣</b>Take and play their top card</span>'); return rows.join(''); }
+function damageEffectKind(card) { return /lightning|bolt|thunder|storm/i.test(card.name) ? 'lightning' : card.area ? 'blast' : 'slash'; }
 function playCard(actor, card, target=null, reclaimChoice=null) {
   if(Date.now() < (game.revealUntil || 0)) return;
   const clicked=document.querySelector(`.card[data-card-id="${card.id}"]`); if(clicked) clicked.classList.add('played');
@@ -323,12 +360,14 @@ function playCard(actor, card, target=null, reclaimChoice=null) {
   actor.hand.splice(actor.hand.indexOf(card),1); game.required = Math.max(0,game.required-1) + (card.again || 0);
   const reclaimCandidate = card.reclaim ? (reclaimChoice || actor.discard.at(-1)) : null;
   const dealDamage = (recipient) => {
+    queueVisualEffect(recipient,damageEffectKind(card),`−${card.damage}`);
     if (game.rules.stackDamage) queueDamage(recipient,card.damage,actor);
     else damage(recipient,card.damage,actor);
   };
   if (card.healPerOpponent) {
     const oldHp=actor.hp; actor.hp=Math.min(10,actor.hp+activePlayers().filter((player)=>player!==actor).length);
     actor.stats.healing += actor.hp-oldHp;
+    if(actor.hp>oldHp) queueVisualEffect(actor,'heal',`+${actor.hp-oldHp}`);
     log(`${actor.name} recovers ${actor.hp-oldHp} HP from Whirling Axes.`);
   }
   if (card.damage && card.area) {
@@ -338,39 +377,44 @@ function playCard(actor, card, target=null, reclaimChoice=null) {
   }
   if (card.swap && target && !target.protected) {
     [actor.hp,target.hp] = [target.hp,actor.hp];
+    queueVisualEffect(actor,'swap'); queueVisualEffect(target,'swap');
     log(`${actor.name} swaps HP totals with ${target.name}.`);
   }
   if (card.destroyDefense && target && !target.protected && target.defenses.length) {
     const defense = target.defenses.pop(); target.discard.push(defense);
+    queueVisualEffect(target,'shatter',`−${defense.shield}`);
     log(`${actor.name} destroys ${target.name}'s ${defense.name}.`);
   }
   if (card.destroyAllDefense) {
     let destroyed=0;
-    game.players.forEach((player)=>{ while(player.defenses.length) { player.discard.push(player.defenses.pop()); destroyed++; } });
+    game.players.forEach((player)=>{ let playerDestroyed=0; while(player.defenses.length) { player.discard.push(player.defenses.pop()); destroyed++; playerDestroyed++; } if(playerDestroyed) queueVisualEffect(player,'shatter',`−${playerDestroyed}`); });
     log(`${actor.name} banishes ${destroyed || 'no'} active defense${destroyed===1?'':'s'}.`);
   }
   if (card.stealDefense && target && !target.protected && target.defenses.length) {
     const defense=target.defenses.pop(); actor.defenses.push(defense);
+    queueVisualEffect(target,'steal'); queueVisualEffect(actor,'shield',`+${defense.shield}`);
     log(`${actor.name} takes ${target.name}'s ${defense.name}.`);
   }
   if (card.discardTarget && target && !target.protected && target.hand.length) {
     const discarded = target.hand.splice(Math.floor(Math.random()*target.hand.length),1)[0]; target.discard.push(discarded);
+    queueVisualEffect(target,'discard');
     log(`${target.name} discards ${discarded.name}.`);
   }
   if (card.discardHandDraw) {
-    activePlayers().forEach((player)=>{ player.discard.push(...player.hand.splice(0)); draw(player,card.discardHandDraw); });
+    activePlayers().forEach((player)=>{ if(player.hand.length) queueVisualEffect(player,'discard'); player.discard.push(...player.hand.splice(0)); draw(player,card.discardHandDraw); });
     log(`Battle Roar makes every player discard their hand and draw ${card.discardHandDraw}.`);
   }
-  if (card.shield) { actor.defenses.push({ ...card }); actor.stats.shieldsRaised += card.shield; log(`${actor.name} raises ${card.name} (${card.shield} shields).`); }
+  if (card.shield) { actor.defenses.push({ ...card }); actor.stats.shieldsRaised += card.shield; queueVisualEffect(actor,'shield',`+${card.shield}`); log(`${actor.name} raises ${card.name} (${card.shield} shields).`); }
   else { actor.discard.push(card); }
-  if (card.heal) { const oldHp=actor.hp; actor.hp=Math.min(10,actor.hp+card.heal); actor.stats.healing += actor.hp-oldHp; log(`${actor.name} recovers ${actor.hp-oldHp} HP.`); }
+  if (card.heal) { const oldHp=actor.hp; actor.hp=Math.min(10,actor.hp+card.heal); actor.stats.healing += actor.hp-oldHp; if(actor.hp>oldHp) queueVisualEffect(actor,'heal',`+${actor.hp-oldHp}`); log(`${actor.name} recovers ${actor.hp-oldHp} HP.`); }
   if (card.draw) { draw(actor,card.draw); log(`${actor.name} draws ${card.draw} card${card.draw>1?'s':''}.`); }
-  if (reclaimCandidate) { actor.discard.splice(actor.discard.lastIndexOf(reclaimCandidate),1); actor.hand.push(reclaimCandidate); log(`${actor.name} returns ${reclaimCandidate.name} from the discard pile.`); }
-  if (card.protected) { actor.protected=true; log(`${actor.name} is protected until their next turn.`); }
+  if (reclaimCandidate) { actor.discard.splice(actor.discard.lastIndexOf(reclaimCandidate),1); actor.hand.push(reclaimCandidate); queueVisualEffect(actor,'reclaim',reclaimCandidate.name); log(`${actor.name} returns ${reclaimCandidate.name} from the discard pile.`); }
+  if (card.protected) { actor.protected=true; queueVisualEffect(actor,'ward'); log(`${actor.name} is protected until their next turn.`); }
+  if (card.again) queueVisualEffect(actor,'extra',`+${card.again}`);
   if (card.stealTop && target && !target.protected) {
     if (!target.deck.length && target.discard.length) { target.deck=shuffle(target.discard); target.discard=[]; }
     const stolen=target.deck.pop();
-    if (stolen) { actor.hand.push(stolen); game.required=Math.max(1,game.required); log(`${actor.name} takes ${stolen.name} from ${target.name}'s deck and may play it this turn.`); }
+    if (stolen) { actor.hand.push(stolen); game.required=Math.max(1,game.required); queueVisualEffect(target,'discard'); queueVisualEffect(actor,'steal',stolen.name); log(`${actor.name} takes ${stolen.name} from ${target.name}'s deck and may play it this turn.`); }
     else log(`${target.name}'s deck has no card to steal.`);
   }
   activePlayers().forEach(refillLowHand);
@@ -394,10 +438,10 @@ function chooseReclaim(card) {
   if (!choices.length) return playCard(actor,card);
   pendingCard=card; els.targetTitle.textContent=`${card.name} — choose a discarded card`;
   els.targetOptions.innerHTML='';
-  choices.forEach((discarded)=>{ const button=document.createElement('button'); button.type='button'; button.className='reclaim-option'; const name=document.createElement('strong'); name.textContent=discarded.name; const effect=document.createElement('small'); effect.textContent=cardText(discarded) || 'No special effect.'; button.append(name,effect); button.onclick=()=>{ els.target.classList.add('hidden'); playCard(playerAtTurn(),pendingCard,null,discarded); pendingCard=null; }; els.targetOptions.append(button); });
+  choices.forEach((discarded)=>{ const button=document.createElement('button'); button.type='button'; button.className=`reclaim-option ${discarded.owner}`; const preview=document.createElement('span'); preview.className='reclaim-card-preview'; const image=cardArtworkPath(discarded); if(image) { const artwork=document.createElement('img'); artwork.src=image; artwork.alt=''; preview.append(artwork); } else { const portrait=document.createElement('img'); portrait.src=`/assets/face-${discarded.owner || actor.character.id}.png`; portrait.alt=''; preview.append(portrait); } const details=document.createElement('span'); details.className='reclaim-card-details'; const name=document.createElement('strong'); name.textContent=discarded.name; const effect=document.createElement('small'); effect.textContent=cardText(discarded) || 'No special effect.'; details.append(name,effect); button.append(preview,details); button.onclick=()=>{ els.target.classList.add('hidden'); playCard(playerAtTurn(),pendingCard,null,discarded); pendingCard=null; }; els.targetOptions.append(button); });
   els.target.classList.remove('hidden');
 }
-function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0 || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0)) return; if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
+function humanPlay(card) { if(game.finished || !canControlTurn() || game.required===0 || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0)) return; $('dice-roll-display').classList.add('hidden'); if(card.reclaim) chooseReclaim(card); else if((card.damage && !card.area) || card.swap || card.destroyDefense || card.stealDefense || card.discardTarget || card.stealTop) chooseTarget(card); else playCard(playerAtTurn(),card); }
 function runAi() {
   if(game.finished) return; const actor=playerAtTurn(); if(actor.isHuman) return;
   if(Date.now()<(game.firstRollEndsAt||0)) return scheduleGameAction(runAi,game.firstRollEndsAt-Date.now()+20);
@@ -424,12 +468,10 @@ function renderFirstRoll() {
   seenFirstRollMatchId=game.matchId;
   holder.innerHTML='';
   const heading=document.createElement('strong'); heading.className='dice-roll-heading'; heading.textContent='🎲 First turn roll'; holder.append(heading);
-  const results=document.createElement('div'); results.className='dice-roll-results';
-  game.players.forEach((player,index)=>{ const result=document.createElement('span'); result.className=`dice-result ${index===game.firstRoll.winnerIndex?'winner':''}`; const die=document.createElement('b'); die.className='die-face'; die.textContent=['⚀','⚁','⚂','⚃','⚄','⚅'][game.firstRoll.rolls[index]-1] || '🎲'; const name=document.createElement('small'); name.textContent=player.name; result.append(die,name); results.append(result); });
-  holder.append(results);
+  const die=document.createElement('b'); die.className='die-face'; die.textContent=['⚀','⚁','⚂','⚃','⚄','⚅'][game.firstRoll.rolls[game.firstRoll.winnerIndex]-1] || '🎲'; holder.append(die);
   const winner=document.createElement('small'); winner.className='dice-roll-winner'; winner.textContent=`${game.players[game.firstRoll.winnerIndex].name} goes first${game.firstRoll.rounds>1?' · tied dice rerolled':''}`; holder.append(winner);
   holder.classList.remove('hidden'); holder.classList.add('rolling');
-  scheduleGameAction(()=>holder.classList.remove('rolling'),1800);
+  scheduleGameAction(()=>holder.classList.remove('rolling'),2000);
   scheduleGameAction(()=>{ if(game?.matchId===seenFirstRollMatchId) render(); },Math.max(0,(game.firstRollEndsAt||Date.now())-Date.now()+30));
 }
 function render() {
@@ -437,7 +479,7 @@ function render() {
   renderFirstRoll();
   const human=gameMode==='online' ? game.players[localPlayerIndex] : game.players[0];
   els.opponents.innerHTML='';
-  game.players.filter((player)=>player!==human).forEach((player)=>{ const shields=player.defenses.reduce((sum,card)=>sum+card.shield,0); const node=document.createElement('article'); node.className=`combatant ${!player.alive?'out':''} ${player===playerAtTurn()?'active':''} ${player===lastHitPlayer?'hit':''}`; node.innerHTML=`<h3>${player.name} <small>· ${player.role}</small></h3><div class="mini-info"><span>${player.alive?`${player.hp} HP`:'Knocked out'}</span><span>${player.hand.length} cards</span></div><div class="healthbar"><span style="width:${player.hp*10}%"></span></div>${shields?`<div class="mini-defense">🛡 ${shields} shield</div>`:''}${player.protected?'<div class="mini-defense">◉ protected</div>':''}`; els.opponents.append(node); });
+  game.players.filter((player)=>player!==human).forEach((player)=>{ const shields=player.defenses.reduce((sum,card)=>sum+card.shield,0); const node=document.createElement('article'); node.className=`combatant ${player.character.id} ${!player.alive?'out':''} ${player===playerAtTurn()?'active':''} ${player===lastHitPlayer?'hit':''}`; node.dataset.playerIndex=game.players.indexOf(player); node.innerHTML=`<h3>${player.name} <small>· ${player.role}</small></h3><div class="mini-info"><span>${player.alive?`${player.hp} HP`:'Knocked out'}</span><span>${player.hand.length} cards</span></div><div class="healthbar"><span style="width:${player.hp*10}%"></span></div>${shields?`<div class="mini-defense">🛡 ${shields} shield</div>`:''}${player.protected?'<div class="mini-defense">◉ protected</div>':''}`; els.opponents.append(node); });
   els.playerName.innerHTML=`${human.name} <span class="hp">${human.hp} HP</span>`; els.playerDeck.textContent=`Deck ${human.deck.length}`; els.playerDiscard.textContent=`Discard ${human.discard.length}`; els.deckCount.textContent=`${human.deck.length} cards`; els.discardCount.textContent=`${human.discard.length} cards`; const last=human.discard.at(-1); els.discardPreview.textContent=last ? effectSymbols(last).split(' ')[0] : '?';
   els.playerDefense.innerHTML=(human.defenses.length ? human.defenses.map((card)=>`<span class="defense-token">🛡 ${card.name}: ${card.shield}</span>`).join('') : '<span class="defense-token">No active defenses</span>') + (human.protected ? '<span class="defense-token">◉ Protected until your next turn</span>' : '');
   const stacked = game.pendingDamage.reduce((sum,hit)=>sum+hit.amount,0);
@@ -459,10 +501,11 @@ function render() {
     if(seenPlayedCardId!==played.id) { seenPlayedCardId=played.id; gameFeedback(played.art==='⚔'||played.art==='☄'?'attack':'card'); stage.classList.remove('active'); void stage.offsetWidth; stage.classList.add('active'); scheduleGameAction(()=>{ if(seenPlayedCardId===played.id) stage.classList.remove('active'); },1900); }
   } else stage.innerHTML='';
   els.hand.innerHTML=''; human.hand.forEach((card)=>{ const button=document.createElement('button'); button.type='button'; button.dataset.cardId=card.id; button.className=`card ${card.owner} ${card.type} ${canControlTurn() && game.required>0?'playable':''}`; button.disabled=!canControlTurn() || game.required===0 || game.finished || Date.now()<(game.revealUntil||0) || Date.now()<(game.firstRollEndsAt||0); button.draggable=!button.disabled; button.addEventListener('dragstart',(event)=>{ if(button.disabled){event.preventDefault();return;} event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',card.id); $('played-card-stage').classList.add('drop-ready'); }); button.addEventListener('dragend',()=>$('played-card-stage').classList.remove('drop-ready')); const image=cardArtworkPath(card); button.innerHTML=`<div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${card.owner}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div>`; button.onclick=()=>humanPlay(card); els.hand.append(button); });
+  playVisualEffects();
   if(played && Date.now()<(game.revealUntil||0) && canControlTurn() && game.required>0) scheduleGameAction(()=>{ if(game && !game.finished) render(); },Math.max(0,game.revealUntil-Date.now()));
 }
 function renderCardLibrary() {
-  $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((card) => `<article class="library-card"><div><strong>${card.name}</strong>${card.mighty ? '<em>Mighty Power</em>' : ''}</div><span class="library-count">×${card.count}</span><p>${cardText(card)}</p><small>${effectSymbols(card)}</small></article>`).join('')}</div></section>`).join('');
+  $('library-decks').innerHTML = characters.map((character) => `<section class="library-deck ${character.id}"><h3>${character.name} <small>${character.role}</small></h3><div class="library-cards">${character.cards.map((template) => { const card={...template,owner:character.id,role:character.role}; const image=cardArtworkPath(card); return `<article class="card library-card ${character.id} ${card.type}" aria-label="${card.name}, ${cardText(card)}"><div class="card-topline"><span class="card-symbols">${cardActionSymbols(card)}</span><span class="card-faction"><b>${card.type}</b><small>${card.role}</small></span></div><div class="card-art ${character.id}" aria-hidden="true">${image?`<img class="card-illustration" src="${image}" alt="">`:'<i class="card-character-face"></i>'}<span class="card-effect-icon">${card.area?'☄':card.swap?'⇄':card.shield?'🛡':card.heal?'♥':card.damage?'⚔':'✦'}</span></div><div class="card-nameplate"><h3>${card.name}</h3></div><div class="card-text-panel">${card.mighty?'<strong class="card-power-label">✦ MIGHTY POWER</strong>':''}<div class="card-effects">${effectRows(card)}</div></div><div class="card-footer"><span>×${card.count} in deck</span><b>${card.type.toUpperCase()}</b></div></article>`; }).join('')}</div></section>`).join('');
 }
 document.querySelectorAll('.player-count').forEach((button)=>button.addEventListener('click',()=>{ selectedPlayers=Number(button.dataset.players); document.querySelectorAll('.player-count').forEach((other)=>other.classList.toggle('selected',other===button)); renderNameFields(); }));
 document.querySelectorAll('.character-choice').forEach((button)=>button.addEventListener('click',()=>{ const character=button.dataset.character; setRandomCharacter(false); if(gameMode==='online' && onlineRoom) { socket.emit('change-character',{code:onlineRoom.code,character},(result)=>{ if(!result.ok) $('lobby-page-status').textContent=result.error; }); return; } setSelectedCharacter(character); }));
@@ -494,7 +537,7 @@ function connectOnline() {
   socket=io();
   socket.on('lobby-state',renderOnlineLobby);
   socket.on('kicked-from-room',()=>{ onlineRoom=null; onlinePlayers=[]; setSelectedCharacter(null); $('online-room-page').classList.add('hidden'); els.setup.classList.remove('hidden'); $('room-status').textContent='The host removed you from the room.'; updateBattleControls(); });
-  socket.on('online-game-state',({state,players})=>{ if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; resultFeedbackMatchId=null; } game=state; onlinePlayers=players; localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id); updateBattleControls(); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { stopTurnTimer(); showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
+  socket.on('online-game-state',({state,players})=>{ if(game?.matchId!==state.matchId) { profileMatchSaved=false; seenPlayedCardId=null; resultFeedbackMatchId=null; seenVisualEffectIds.clear(); } game=state; onlinePlayers=players; localPlayerIndex=game.players.findIndex((player)=>player.socketId===socket.id); updateBattleControls(); els.setup.classList.add('hidden'); $('online-room-page').classList.add('hidden'); els.battle.classList.remove('hidden'); els.log.innerHTML=''; turnDeadline=game.turnEndsAt || Date.now()+TURN_LIMIT_SECONDS*1000; stopTurnTimer(); refreshTurnTimer(); timerInterval=window.setInterval(refreshTurnTimer,500); render(); if(game.finished) { stopTurnTimer(); showResults(activePlayers()[0]); setStatus('Battle complete.'); return; } const active=playerAtTurn(); setStatus(canControlTurn() ? `${active.name}'s turn.` : `${active.name}'s turn. Waiting for them to play.`); });
 }
 document.querySelectorAll('.mode-choice').forEach((button)=>button.addEventListener('click',()=>{ gameMode=button.dataset.mode; updateBattleControls(); document.querySelectorAll('.mode-choice').forEach((other)=>other.classList.toggle('selected',other===button)); const online=gameMode==='online'; $('online-lobby').classList.toggle('hidden',!online); $('battle-size-heading').textContent=online?'Choose online room size':'Choose the battle size'; if(online) connectOnline(); else { document.querySelectorAll('.character-choice,.player-count').forEach((control)=>{ control.disabled=false; control.title=''; }); } }));
 $('create-room').onclick=()=>{ connectOnline(); socket.emit('create-room',{name:playerIdentity(),character:randomCharacter?'random':null,limit:selectedPlayers},(result)=>{ if(!result.ok) $('room-status').textContent=result.error; else setSelectedCharacter(result.character || null); }); };
@@ -502,6 +545,13 @@ $('join-room').onclick=()=>{ connectOnline(); socket.emit('join-room',{code:$('r
 $('random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
 $('lobby-random-character-toggle').addEventListener('change',(event)=>setRandomCharacter(event.target.checked));
 $('start-button').onclick=startGame; $('lobby-start-button').onclick=startGame; $('restart-button').onclick=()=>{ if(gameMode==='online') return; stopCurrentGame(); }; $('leave-online-button').onclick=leaveOnlineMatch; $('leave-room-button').onclick=()=>{ if(gameMode==='online') leaveOnlineMatch(); else stopCurrentGame(); }; $('winner-restart').onclick=()=>{ els.winner.classList.add('hidden'); startGame(); }; $('rules-button').onclick=()=>$('rules-dialog').showModal(); $('close-rules').onclick=()=>$('rules-dialog').close(); $('cancel-target').onclick=()=>{ pendingCard=null; els.target.classList.add('hidden'); }; $('clear-log').onclick=()=>els.log.innerHTML='';
+$('leave-battle-button').onclick=()=>{ if(gameMode==='online') leaveOnlineMatch(); else stopCurrentGame(); };
+const navToggle=$('nav-toggle'),topbar=document.querySelector('.topbar');
+function setNavOpen(open) { topbar.classList.toggle('nav-open',open); navToggle.setAttribute('aria-expanded',String(open)); navToggle.setAttribute('aria-label',open?'Close navigation':'Open navigation'); }
+navToggle.addEventListener('click',()=>setNavOpen(navToggle.getAttribute('aria-expanded')!=='true'));
+$('topbar-actions').addEventListener('click',()=>setNavOpen(false));
+document.addEventListener('keydown',(event)=>{ if(event.key==='Escape') setNavOpen(false); });
+window.matchMedia('(min-width: 701px)').addEventListener('change',()=>setNavOpen(false));
 const playDropZone=$('played-card-stage');
 playDropZone.addEventListener('dragover',(event)=>{ if(canControlTurn() && game && !game.finished && game.required>0 && Date.now()>=(game.revealUntil||0)) { event.preventDefault(); event.dataTransfer.dropEffect='move'; playDropZone.classList.add('drag-over'); } });
 playDropZone.addEventListener('dragleave',(event)=>{ if(!playDropZone.contains(event.relatedTarget)) playDropZone.classList.remove('drag-over'); });

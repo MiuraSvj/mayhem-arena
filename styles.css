@@ -30,6 +30,55 @@ dialog { width:min(740px,calc(100% - 32px)); border:1px solid var(--line); borde
 .switch-control { flex:0 0 auto; display:flex; align-items:center; gap:8px; }.switch-control b { min-width:32px; color:var(--red); font-size:.7rem; letter-spacing:.08em; text-align:center; }.switch-control:has(input:checked) b { color:var(--green); }.toggle-row .switch-control i { flex:0 0 42px; }
 .target-options button.reclaim-option { display:grid; gap:5px; }.reclaim-option strong { color:var(--ink); }.reclaim-option small { color:var(--muted); font-size:.76rem; line-height:1.35; font-weight:500; }
 .random-character-row { margin:12px 0; }
+/* Make each played card visibly flip into the center of the table. */
+.played-card-stage.active .reveal-card { transform-style:preserve-3d; backface-visibility:hidden; animation:card-flip-in 1.8s cubic-bezier(.18,.75,.25,1) both; }
+@keyframes card-flip-in { 0%{opacity:0;transform:translateY(90px) scale(.62) rotateY(180deg) rotateZ(-12deg)} 24%{opacity:1;transform:translateY(0) scale(1.06) rotateY(0) rotateZ(2deg)} 42%,100%{opacity:1;transform:translateY(0) scale(1) rotateY(0) rotateZ(0)} }
+.target-options button.reclaim-option { grid-template-columns:72px minmax(0,1fr); align-items:center; gap:12px; min-height:102px; padding:9px; }
+.reclaim-card-preview { width:68px; height:84px; overflow:hidden; display:block; border:2px solid #e7c875; border-radius:6px; background:linear-gradient(155deg,#574032,#211711); box-shadow:0 4px 10px #0008; }
+.reclaim-card-preview img { width:100%; height:100%; object-fit:cover; }
+.reclaim-card-details { display:grid; gap:5px; }
+.reclaim-card-details strong { font-family:Georgia,serif; font-size:.95rem; }
+.reclaim-card-details small { color:var(--muted); font-size:.76rem; line-height:1.35; font-weight:500; }
+@media(max-width:520px){.target-options button.reclaim-option{grid-template-columns:58px minmax(0,1fr);gap:9px;min-height:86px}.reclaim-card-preview{width:54px;height:68px}.reclaim-card-details strong{font-size:.85rem}.reclaim-card-details small{font-size:.68rem}}
+/* Small motion cues make the arena feel responsive without slowing play. */
+.app-shell > .topbar { animation:scene-rise .55s cubic-bezier(.2,.75,.25,1) both; }
+.app-shell > .status-strip { animation:scene-rise .55s .08s cubic-bezier(.2,.75,.25,1) both; }
+.setup-card { animation:panel-arrive .65s .12s cubic-bezier(.2,.75,.25,1) both; }
+.button,.player-count,.mode-choice,.character-choice,.target-options button,.log-header button { transition:transform .18s ease,filter .18s ease,border-color .18s ease,background-color .18s ease,box-shadow .18s ease; }
+.button:hover,.player-count:hover,.mode-choice:hover,.character-choice:hover { transform:translateY(-2px); border-color:#d7aa55; box-shadow:0 7px 18px #0004; }
+.button:active,.player-count:active,.mode-choice:active,.character-choice:active { transform:translateY(0) scale(.98); }
+.button:focus-visible,.player-count:focus-visible,.mode-choice:focus-visible,.character-choice:focus-visible,.card:focus-visible,.target-options button:focus-visible { outline:2px solid #ffe093; outline-offset:3px; }
+.character-choice.selected { animation:choice-glow .42s ease-out; }
+.character-portrait { transition:transform .25s cubic-bezier(.2,.75,.25,1),box-shadow .25s ease; }
+.character-choice:hover .character-portrait,.character-choice.selected .character-portrait { transform:translateY(-2px) scale(1.04); box-shadow:0 5px 12px #0008,0 0 14px #eab95d2e; }
+.mode-choice.selected { box-shadow:inset 0 0 0 1px #eab95d44,0 4px 14px #eab95d12; }
+.combatant { transition:border-color .25s ease,box-shadow .25s ease,opacity .3s ease,filter .3s ease; }
+.combatant.active { animation:turn-glow 2.8s ease-in-out infinite; }
+.healthbar span { transition:width .55s cubic-bezier(.2,.75,.25,1); }
+.deck-stack { animation:deck-hover 3.8s ease-in-out infinite; }
+.discard-card { transition:transform .25s ease,box-shadow .25s ease,color .25s ease; }
+.discard-zone:hover .discard-card { transform:translateY(-4px) rotate(3deg) scale(1.04); box-shadow:0 8px 16px #0008; color:#ffe093; }
+.card { transform-origin:50% 100%; }
+.app-shell .card.playable { transition:transform .22s cubic-bezier(.2,.75,.25,1),box-shadow .22s ease,filter .22s ease; }
+.app-shell .card.playable:hover { transform:translateY(-12px) rotate(-1.5deg) scale(1.035); box-shadow:0 17px 24px #000a; filter:brightness(1.08); }
+.app-shell .card.playable:active { transform:translateY(-4px) scale(.985); }
+.card.playable::after { content:''; position:absolute; inset:-80% -50%; pointer-events:none; opacity:0; transform:translateX(-65%) rotate(18deg); background:linear-gradient(90deg,transparent,#fff3,transparent); transition:transform .55s ease,opacity .2s ease; }
+.card.playable:hover::after { opacity:1; transform:translateX(65%) rotate(18deg); }
+.target-card,.winner-card { animation:panel-arrive .35s cubic-bezier(.2,.75,.25,1) both; }
+.target-options button:hover { transform:translateX(3px); border-color:var(--gold); background:#493326; }
+.reclaim-card-preview { transition:transform .22s ease,box-shadow .22s ease; }
+.reclaim-option:hover .reclaim-card-preview { transform:rotate(-3deg) scale(1.04); box-shadow:0 7px 15px #0009; }
+.action-banner.attack { animation:action-pulse .6s ease, banner-arrive .32s ease-out; }
+@keyframes scene-rise { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes panel-arrive { from{opacity:0;transform:translateY(14px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes choice-glow { 0%{box-shadow:0 0 0 0 #eab95d00} 45%{box-shadow:0 0 0 4px #eab95d55} 100%{box-shadow:inset 0 0 0 1px #eab95d66} }
+@keyframes turn-glow { 0%,100%{box-shadow:inset 0 0 0 1px #eab95d33,0 0 0 #eab95d00} 50%{box-shadow:inset 0 0 0 1px #eab95d77,0 0 18px #eab95d18} }
+@keyframes deck-hover { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+@keyframes banner-arrive { from{transform:translateY(-5px);opacity:.65} to{transform:translateY(0);opacity:1} }
+@media(prefers-reduced-motion:reduce) {
+  .app-shell > .topbar,.app-shell > .status-strip,.setup-card,.character-choice.selected,.combatant.active,.deck-stack,.target-card,.winner-card { animation:none!important; }
+  .button,.player-count,.mode-choice,.character-choice,.target-options button,.log-header button,.card,.character-portrait,.healthbar span,.discard-card,.reclaim-card-preview { transition:none!important; }
+}
 @keyframes card-reveal { 0%{opacity:0;transform:translateY(75px) scale(.55) rotate(-15deg)} 20%{opacity:1;transform:translateY(0) scale(1.08) rotate(3deg)} 34%,76%{opacity:1;transform:translateY(0) scale(1) rotate(0)} 100%{opacity:0;transform:translateY(-12px) scale(.94)} }
 @media(max-width:700px){body:has(.battle:not(.hidden)) .battle{grid-template-rows:minmax(48px,.6fr) 116px 27px minmax(0,2.7fr) 29px}body:has(.battle:not(.hidden)) .table-area{grid-template-columns:58px minmax(0,1fr) 58px}.played-card-stage.active{min-height:76px}.reveal-card{width:74px;min-height:82px;padding:4px;gap:2px;border-width:2px}.reveal-topline{font-size:.36rem}.reveal-card strong{font-size:.55rem}.reveal-art{width:20px;height:20px;font-size:.85rem}.reveal-card small{font-size:.38rem;line-height:1.05}.table-center{gap:1px}.battle-message{font-size:.62rem}}
 /* Keep the latest played card visible and readable after its entrance animation. */
@@ -193,7 +242,7 @@ button:focus-visible,input:focus-visible { outline:3px solid #ffe093; outline-of
 .die-face { color:#fff2cf; font-size:1.25rem; line-height:1.1; }
 .dice-result small { max-width:100px; overflow:hidden; color:#fff4df; font-size:.58rem; white-space:nowrap; text-overflow:ellipsis; }
 .dice-roll-winner { color:#fff0c3; font-size:.68rem; font-weight:800; }
-.dice-roll-display.rolling .die-face { animation:die-tumble .8s cubic-bezier(.2,.75,.25,1) 2; }
+.dice-roll-display.rolling .die-face { animation:die-tumble .95s cubic-bezier(.2,.75,.25,1) 2; }
 @keyframes die-tumble { 0%{transform:translateY(-8px) rotate(-45deg) scale(.7);filter:brightness(1.8)} 55%{transform:translateY(2px) rotate(220deg) scale(1.15)} 100%{transform:translateY(0) rotate(360deg) scale(1);filter:brightness(1)} }
 .reveal-character-face { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .reveal-effect-icon { position:absolute; right:-2px; bottom:-2px; z-index:1; display:grid; place-items:center; width:25px; height:25px; border:1px solid #fff9; border-radius:50%; background:#171210e8; color:#fff4df; font-size:1rem; }
