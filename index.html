@@ -36,7 +36,7 @@
       </header>
 
       <section class="status-strip" aria-live="polite">
-        <div id="turn-status">Choose a character and game size to begin.</div>
+        <div id="turn-status"></div>
         <div class="turn-timer" id="turn-timer" aria-label="Turn timer"><span id="timer-label">60s</span><i><b id="timer-bar"></b></i></div>
         <div class="counter" id="action-counter">Cards to play: —</div>
         <button class="button ghost leave-battle-button hidden" id="leave-battle-button" type="button" aria-label="Leave battle" title="Leave battle">Leave</button>
@@ -117,6 +117,7 @@
             <small id="deck-count">0 cards</small>
           </div>
           <div class="table-center"><div class="dice-roll-display hidden" id="dice-roll-display" aria-live="polite"></div><div class="played-card-stage" id="played-card-stage" aria-live="polite"></div><div class="battle-message" id="battle-message">The arena is ready.</div></div>
+          <aside class="played-history" aria-label="Recently played cards"><strong>Played</strong><div class="played-history-list" id="played-history-list"><small>No cards yet</small></div></aside>
           <div class="deck-zone discard-zone">
             <div class="discard-card" id="discard-preview" aria-hidden="true">?</div>
             <strong>Discard</strong>
@@ -140,10 +141,6 @@
           </div>
         </section>
 
-        <section class="log-panel" aria-label="Battle log">
-          <div class="log-header"><h2>Battle log</h2><button id="clear-log" type="button">Clear</button></div>
-          <ol id="game-log"></ol>
-        </section>
       </section>
     </main>
 

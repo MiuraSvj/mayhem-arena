@@ -949,3 +949,74 @@ dialog::backdrop { background:#020c12c9; backdrop-filter:blur(4px); }
   .settings-toggle,.settings-volume { padding:10px; }
   .settings-toggle small { max-width:240px; }
 }
+
+/* Give the arena the battle log's former row so the table has more room. */
+@media(min-width:701px) {
+  body:has(.battle:not(.hidden)) .battle {
+    grid-template-rows:minmax(70px,.75fr) minmax(165px,1.35fr) 30px minmax(190px,2.15fr)!important;
+  }
+  body:has(.battle:not(.hidden)) .table-area { width:100%; }
+}
+@media(max-width:700px) {
+  body:has(.battle:not(.hidden)) .battle {
+    grid-template-rows:minmax(48px,.6fr) minmax(95px,1.1fr) 27px minmax(0,2.7fr)!important;
+  }
+  body:has(.battle:not(.hidden)) .table-area { width:100%; }
+}
+
+/* Recent played cards sit beside the felt as a glanceable match history. */
+body:has(.battle:not(.hidden)) .table-area {
+  grid-template-columns:clamp(52px,6vw,78px) minmax(0,1fr) minmax(94px,112px) clamp(52px,6vw,78px)!important;
+  gap:clamp(5px,1.5vw,18px)!important;
+}
+.played-history {
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  align-self:stretch;
+  min-width:0;
+  max-height:100%;
+  gap:5px;
+  padding:7px 6px;
+  border:1px solid #c0f5ff66;
+  border-radius:12px;
+  background:#064a6577;
+  box-shadow:inset 0 1px #ffffff22,0 5px 12px #00334b44;
+  color:#eaffff;
+  text-align:center;
+}
+.played-history>strong { color:#d8faff; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; }
+.played-history-list { display:grid; grid-auto-rows:minmax(35px,1fr); align-content:start; gap:4px; min-height:0; overflow:auto; }
+.played-history-list>small { align-self:center; color:#b8e6ee; font-size:.57rem; line-height:1.25; }
+.played-history-card { display:grid; grid-template-columns:30px minmax(0,1fr); align-items:center; gap:5px; min-width:0; padding:3px; border:1px solid #d1fbff99; border-radius:6px; background:linear-gradient(145deg,#2b7790,#124860); box-shadow:0 2px 5px #00253888; text-align:left; }
+.played-history-card.sutha { background:linear-gradient(145deg,#6c995f,#315e45); }
+.played-history-card.azzan { background:linear-gradient(145deg,#8e6bc1,#513782); }
+.played-history-card.lia { background:linear-gradient(145deg,#e47766,#943a39); }
+.played-history-card.oriax { background:linear-gradient(145deg,#d5a441,#8d5a1e); }
+.played-history-art { display:grid; place-items:center; width:30px; height:38px; overflow:hidden; border:1px solid #f3ffffcc; border-radius:4px; background:#082735; }
+.played-history-art img { width:100%; height:100%; object-fit:cover; }
+.played-history-details { display:grid; min-width:0; gap:2px; }
+.played-history-details b,.played-history-details small { overflow:hidden; color:#f4ffff; text-overflow:ellipsis; white-space:nowrap; }
+.played-history-details b { font-size:.57rem; line-height:1.05; }
+.played-history-details small { color:#c6edf4; font-size:.48rem; }
+@media(max-width:700px) {
+  body:has(.battle:not(.hidden)) .table-area {
+    grid-template-columns:38px minmax(0,1fr) minmax(50px,60px) 38px!important;
+    gap:2px!important;
+  }
+  .played-history { gap:3px; padding:4px 2px; border-radius:7px; }
+  .played-history>strong { font-size:.46rem; letter-spacing:.04em; }
+  .played-history-list { grid-auto-rows:minmax(30px,1fr); gap:3px; }
+  .played-history-list>small { font-size:.44rem; }
+  .played-history-card { grid-template-columns:1fr; justify-items:center; gap:1px; padding:2px 1px; }
+  .played-history-art { width:25px; height:29px; }
+  .played-history-details { width:100%; text-align:center; }
+  .played-history-details b { font-size:.39rem; }
+  .played-history-details small { display:none; }
+}
+@media(max-width:380px) {
+  body:has(.battle:not(.hidden)) .table-area { grid-template-columns:32px minmax(0,1fr) 46px 32px!important; }
+  .played-history-art { width:22px; height:25px; }
+  .played-history>strong { font-size:.4rem; }
+}
