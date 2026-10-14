@@ -208,6 +208,19 @@ button:focus-visible,input:focus-visible { outline:3px solid #ffe093; outline-of
 .card.oriax { --class:#a183df; --class-deep:#443075; }
 .reveal-card.wizard { background:linear-gradient(155deg,#e1ad42,#815514); }
 .reveal-card.rogue { background:linear-gradient(155deg,#a183df,#443075); }
+/* Keep the turn controls reachable while the battle board scrolls on iPhone. */
+@media(max-width:700px) {
+  .app-shell:has(.battle:not(.hidden)) { padding-top:max(8px,env(safe-area-inset-top,0px)); }
+  body:has(.battle:not(.hidden)) .status-strip {
+    position:sticky;
+    top:env(safe-area-inset-top,0px);
+    z-index:50;
+    margin-top:0;
+    background:#102b3aF2;
+    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(12px);
+  }
+}
 .wizard .character-portrait { background-blend-mode:soft-light; }
 .rogue .character-portrait { background-blend-mode:soft-light; }
 .card-art .card-character-face { background-color:var(--class); background-blend-mode:soft-light; }

@@ -1096,3 +1096,62 @@ body:has(.battle:not(.hidden)) .table-area {
   }
   body:has(.battle:not(.hidden)) .hand .card { align-self:flex-start; touch-action:manipulation; }
 }
+
+/* Compact Android/iPhone battle flow: prevent empty grid tracks from stretching
+   the opponent panel and keep the felt center clear of the side piles. */
+@media(max-width:700px) {
+  body:has(.battle:not(.hidden)) .app-shell {
+    height:auto!important;
+    min-height:100dvh!important;
+    overflow:visible!important;
+  }
+  body:has(.battle:not(.hidden)) .status-strip {
+    position:sticky;
+    top:env(safe-area-inset-top,0px);
+    margin-top:0;
+    background:#103448f5;
+    -webkit-backdrop-filter:blur(10px);
+    backdrop-filter:blur(10px);
+  }
+  body:has(.battle:not(.hidden)) .battle {
+    height:auto!important;
+    min-height:0!important;
+    grid-template-rows:auto auto auto auto!important;
+    align-content:start;
+  }
+  body:has(.battle:not(.hidden)) .opponents {
+    min-height:0;
+    align-content:start;
+    margin-bottom:0;
+    gap:8px;
+  }
+  body:has(.battle:not(.hidden)) .combatant { flex:0 1 auto; }
+  body:has(.battle:not(.hidden)) .table-area {
+    height:clamp(250px,38svh,340px)!important;
+    min-height:250px!important;
+    padding:12px 5px;
+    grid-template-columns:36px minmax(0,1fr) 48px 36px!important;
+    gap:2px!important;
+  }
+  body:has(.battle:not(.hidden)) .deck-stack,
+  body:has(.battle:not(.hidden)) .discard-card {
+    width:42px;
+    height:58px;
+    margin:0!important;
+    transform:none!important;
+  }
+  body:has(.battle:not(.hidden)) .deck-zone { gap:2px; font-size:.48rem; }
+  body:has(.battle:not(.hidden)) .played-history {
+    min-height:0;
+    max-height:100%;
+    padding:4px 2px;
+  }
+  body:has(.battle:not(.hidden)) .table-center { width:100%; gap:5px; }
+  body:has(.battle:not(.hidden)) .battle-message {
+    max-width:100%;
+    padding:0 3px;
+    font-size:clamp(.7rem,3.3vw,.9rem);
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
+}
