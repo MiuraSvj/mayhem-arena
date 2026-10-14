@@ -68,6 +68,9 @@ const MUSIC_TRACKS = {
 let musicChoice = (()=>{ try { const saved=localStorage.getItem('mayhem-music-choice'); return Object.hasOwn(MUSIC_TRACKS,saved)?saved:'auto'; } catch { return 'auto'; } })();
 const musicTrackPlayers = new Map();
 let activeMusicTrack = null;
+let activeMusicChoice = null;
+let activeMusicContext = null;
+let activeMusicWasAutomatic = false;
 const gameTimeouts = new Set();
 
 function saveUiPreference(key,value) { try { localStorage.setItem(key,String(value)); } catch { /* Preferences are optional when storage is unavailable. */ } }
@@ -139,22 +142,42 @@ function playEffectSound(kind) {
   lastEffectSoundAt.set(kind,now);
   playGameSound(kind);
 }
-function syncBackgroundMusic() {
+function pickRandomMusicTrack(context) {
+  // Keep the darker battle tracks out of the menu playlist while allowing
+  // the full soundtrack to rotate during a match.
+  const playlist=context==='battle' ? ['lux','cinematic','epic','blood'] : ['lux','cinematic'];
+  const alternatives=playlist.filter((choice)=>choice!==activeMusicChoice);
+  const choices=alternatives.length?alternatives:playlist;
+  return choices[Math.floor(Math.random()*choices.length)];
+}
+function syncBackgroundMusic(forceAutomaticTrack=false) {
   if(!musicEnabled || musicVolume<=0) { stopBackgroundMusic(); return; }
-  const isBattleMusic=Boolean(game && !game.finished);
+  const context=game && !game.finished?'battle':'menu';
   try {
-    const choice=musicChoice==='auto' ? (isBattleMusic?'epic':'cinematic') : musicChoice==='blood' ? (isBattleMusic?'blood':'cinematic') : musicChoice;
+    const automatic=musicChoice==='auto';
+    const shouldPickRandom=automatic && (forceAutomaticTrack || !activeMusicTrack || activeMusicTrack.ended || !activeMusicWasAutomatic || activeMusicContext!==context);
+    const choice=automatic ? (shouldPickRandom?pickRandomMusicTrack(context):activeMusicChoice) : musicChoice==='blood' && context==='menu' ? 'cinematic' : musicChoice;
     const url=MUSIC_TRACKS[choice];
+    if(!url) return;
     let track=musicTrackPlayers.get(choice);
     if(!track) {
       track=new Audio(url);
-      track.loop=true;
       track.preload='auto';
       musicTrackPlayers.set(choice,track);
     }
     if(activeMusicTrack && activeMusicTrack!==track) activeMusicTrack.pause();
+    track.loop=!automatic;
     track.volume=musicVolume;
     activeMusicTrack=track;
+    activeMusicChoice=choice;
+    activeMusicContext=context;
+    activeMusicWasAutomatic=automatic;
+    if(automatic) track.onended=()=>{
+      if(!musicEnabled || musicChoice!=='auto' || activeMusicTrack!==track) return;
+      activeMusicTrack=null;
+      syncBackgroundMusic(true);
+    };
+    else track.onended=null;
     if(track.paused) track.play().catch(()=>{});
   } catch { /* Audio is optional. */ }
 }
@@ -164,6 +187,7 @@ function startBackgroundMusic() {
 function stopBackgroundMusic() {
   if(activeMusicTrack) activeMusicTrack.pause();
   activeMusicTrack=null;
+  activeMusicWasAutomatic=false;
 }
 function unlockGameAudio() {
   if(!soundEnabled && !musicEnabled) return;
@@ -836,7 +860,7 @@ $('settings-button').onclick=()=>{ updateSettingsControls(); $('settings-dialog'
 $('battle-settings-button').onclick=()=>{ updateSettingsControls(); $('settings-dialog').showModal(); };
 $('close-settings').onclick=()=>$('settings-dialog').close();
 $('music-enabled').addEventListener('change',(event)=>{ musicEnabled=event.target.checked; saveUiPreference('mayhem-music',musicEnabled); if(musicEnabled) unlockGameAudio(); else stopBackgroundMusic(); updateSettingsControls(); });
-$('music-choice').addEventListener('change',(event)=>{ musicChoice=Object.hasOwn(MUSIC_TRACKS,event.target.value)?event.target.value:'auto'; saveUiPreference('mayhem-music-choice',musicChoice); if(musicEnabled) startBackgroundMusic(); updateSettingsControls(); });
+  $('music-choice').addEventListener('change',(event)=>{ musicChoice=Object.hasOwn(MUSIC_TRACKS,event.target.value)?event.target.value:'auto'; saveUiPreference('mayhem-music-choice',musicChoice); if(musicEnabled) syncBackgroundMusic(musicChoice==='auto'); updateSettingsControls(); });
 $('sound-enabled').addEventListener('change',(event)=>{ soundEnabled=event.target.checked; saveUiPreference('mayhem-sound',soundEnabled); if(soundEnabled) { unlockGameAudio(); playGameSound('card'); $('sound-test-status').textContent=''; } updateSettingsControls(); });
 $('vibration-enabled').addEventListener('change',(event)=>{ vibrationEnabled=event.target.checked; saveUiPreference('mayhem-vibration',vibrationEnabled); if(vibrationEnabled) { const vibrated=vibrateGame('card'); $('vibration-test-status').textContent=vibrated?'Haptic test sent.':'Impact cue played (iPhone web vibration is unavailable).'; } else { try { navigator.vibrate?.(0); } catch {} $('vibration-test-status').textContent=''; } updateSettingsControls(); });
   $('music-volume').addEventListener('input',(event)=>{ musicVolume=Number(event.target.value)/100; saveUiPreference('mayhem-music-volume',musicVolume); updateSettingsControls(); if(activeMusicTrack) activeMusicTrack.volume=musicVolume; if(musicVolume===0) stopBackgroundMusic(); else if(musicEnabled) startBackgroundMusic(); });
