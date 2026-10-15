@@ -1164,3 +1164,13 @@ body:not(:has(.battle:not(.hidden))) .played-history { display:none; }
 }
 
 body:has(.battle:not(.hidden)) #collection-button{display:none!important}
+
+/* Keep the arena felt at the same roomy size between card reveals. */
+@media(min-width:701px) {
+  body:has(.battle:not(.hidden)) .battle {
+    grid-template-rows:auto minmax(230px,auto) auto auto!important;
+  }
+  body:has(.battle:not(.hidden)) .table-area {
+    min-height:230px!important;
+  }
+}
