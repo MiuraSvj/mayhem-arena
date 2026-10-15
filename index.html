@@ -27,7 +27,7 @@
         </button>
         <div class="topbar-actions" id="topbar-actions">
           <button class="button ghost" id="account-button" type="button">Create account / Sign in</button>
-          <button class="button ghost" id="card-library-button" type="button">Card library</button>
+          <button class="button ghost" id="collection-button" type="button">Explore</button>
           <button class="button ghost" id="rules-button" type="button">How to play</button>
           <button class="button ghost" id="settings-button" type="button" aria-haspopup="dialog">⚙ Settings</button>
           <button class="button" id="restart-button" type="button">New battle</button>
@@ -47,10 +47,8 @@
       <section class="setup-card" id="setup-panel">
         <p class="eyebrow">Start a match</p>
         <h2>Choose your character</h2>
-        <p>Enter the players’ names, then choose your character. Pass the phone when the turn changes.</p>
-        <div class="name-fields" id="name-fields">
-          <label>Your name<input id="player-name-input" maxlength="18" value="Player 1" autocomplete="nickname" /></label>
-        </div>
+        <p>Choose your character, then enter the arena.</p>
+        <p class="player-identity" id="player-identity-label" aria-live="polite"></p>
         <div class="mode-picker" role="group" aria-label="Game mode">
           <button class="mode-choice selected" data-mode="ai" type="button"><strong>Vs AI</strong><small>Play against computer opponents.</small></button>
           <button class="mode-choice" data-mode="online" type="button"><strong>Online room</strong><small>Create or join a private game code.</small></button>
@@ -90,6 +88,33 @@
         <div class="resume-match hidden" id="resume-match"><p>Your Vs AI battle is saved on this device.</p><button class="button primary" id="resume-game-button" type="button">Resume saved battle</button></div>
       </section>
 
+      <section class="collection-page hidden" id="collection-page" aria-label="Library and match history">
+        <div class="collection-heading"><div><p class="eyebrow">Arena archive</p><h2>Explore</h2></div><button class="button ghost" id="collection-back" type="button">Back to arena</button></div>
+        <div class="collection-tabs" role="tablist" aria-label="Explore sections">
+          <button class="button collection-tab selected" id="library-tab" type="button" role="tab" aria-selected="true">Card library</button>
+          <button class="button collection-tab" id="match-history-tab" type="button" role="tab" aria-selected="false">Match history</button>
+          <button class="button collection-tab" id="achievements-tab" type="button" role="tab" aria-selected="false">Achievements</button>
+        </div>
+        <section class="collection-panel" id="library-panel" role="tabpanel" aria-labelledby="library-tab">
+          <p class="library-intro">Filter the complete card library by character, effect, and card type.</p>
+          <div class="library-filters" aria-label="Card library filters">
+            <label>Character<select id="library-character-filter"><option value="all">All characters</option></select></label>
+            <label>Effect<select id="library-effect-filter"><option value="all">Any effect</option><option value="damage">Damage</option><option value="healing">Healing</option><option value="defense">Defense</option><option value="draw">Draw cards</option><option value="extra">Extra plays</option><option value="special">Special effects</option></select></label>
+            <label>Card type<select id="library-type-filter"><option value="all">All types</option><option value="attack">Attack</option><option value="defense">Defense</option><option value="heal">Heal</option><option value="trick">Trick</option><option value="mighty">Mighty</option></select></label>
+          </div>
+          <p id="library-result-count" class="library-result-count" aria-live="polite"></p>
+          <div class="library-decks" id="library-decks"></div>
+        </section>
+        <section class="collection-panel hidden" id="match-history-panel" role="tabpanel" aria-labelledby="match-history-tab">
+          <section id="history-summary" class="history-summary"></section>
+          <ol id="history-list" class="history-list"></ol>
+        </section>
+        <section class="collection-panel hidden" id="achievements-panel" role="tabpanel" aria-labelledby="achievements-tab">
+          <p id="achievement-summary" class="history-summary"></p>
+          <div id="achievement-list" class="achievement-list"></div>
+        </section>
+      </section>
+
       <section class="setup-card lobby-page hidden" id="online-room-page">
         <p class="eyebrow">Online lobby</p>
         <h2 id="lobby-page-title">Room</h2>
@@ -127,7 +152,6 @@
             <small id="deck-count">0 cards</small>
           </div>
           <div class="table-center"><div class="dice-roll-display hidden" id="dice-roll-display" aria-live="polite"></div><div class="played-card-stage" id="played-card-stage" aria-live="polite"></div><div class="battle-message" id="battle-message">The arena is ready.</div></div>
-          <aside class="played-history" aria-label="Recently played cards"><strong>Played</strong><div class="played-history-list" id="played-history-list"><small>No cards yet</small></div></aside>
           <div class="deck-zone discard-zone">
             <div class="discard-card" id="discard-preview" aria-hidden="true">?</div>
             <strong>Discard</strong>
@@ -154,6 +178,7 @@
       </section>
     </main>
 
+    <details class="played-history" id="played-history" open aria-label="Recently played cards"><summary>Played cards</summary><div class="played-history-list" id="played-history-list"><small>No cards yet</small></div></details>
     <dialog id="rules-dialog">
       <div class="dialog-heading"><div><p class="eyebrow">Rules reference</p><h2>How to battle</h2></div><button class="icon-button" id="close-rules" aria-label="Close rules">×</button></div>
       <div class="rules-grid">
@@ -161,7 +186,7 @@
         <article><h3>Goal</h3><p>Be the last player with hit points remaining. Each character begins at 10 HP.</p></article>
         <article><h3>Turn</h3><p>The turn clock is set before a match begins. If it reaches zero, your remaining card plays are forfeited and the turn passes. Choose No timer for a relaxed match. A lightning symbol adds another required card play.</p></article>
         <article><h3>House rules</h3><p>House rules ON: start with 3 cards, skip automatic turn draws, and draw 2 when your hand reaches 1 card. House rules OFF: start with 2 cards and draw 1 at the beginning of each turn. Card effects still apply in either mode.</p></article>
-        <article><h3>AI difficulty</h3><p>Rookie makes casual, unpredictable plays. Tactician weighs attacks, healing, and defense with some variation. Legend evaluates card value, shields, health, and likely knockouts, then targets the most vulnerable opponent.</p></article>
+        <article><h3>AI difficulty &amp; personalities</h3><p>Rookie plays loosely, Tactician balances cards with some variation, and Legend makes stronger strategic choices. Each computer opponent also gets a visible style: Aggressive favors attacks, Defensive favors healing and shields, and Unpredictable makes riskier choices. All AI attacks choose a random living target.</p></article>
         <article><h3>Attack ⚔</h3><p>Choose an opponent. Damage removes active defense first, then their hit points.</p></article>
         <article><h3>Defense 🛡</h3><p>Defense stays on your board until its shields are gone. It absorbs damage before your HP.</p></article>
         <article><h3>Other symbols</h3><p>♥ restores HP up to 10. ▣ draws cards immediately. Every symbol on a card resolves: ⚔ + 🛡 deals damage, then stays as a defense. Non-defense cards go to your discard pile.</p></article>
@@ -169,12 +194,6 @@
       </div>
       <figure class="reference-photo"><img src="IMG_5122.jpg" alt="How to play reference photo from the supplied Drive folder" /><figcaption>Original reference sheet supplied with the card photos.</figcaption></figure>
       <p class="fine-print">This is an original fan-made implementation of the supplied game system for local play. It uses original card names and presentation.</p>
-    </dialog>
-
-    <dialog id="card-library-dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">Complete deck reference</p><h2>Card library</h2></div><button class="icon-button" id="close-card-library" aria-label="Close card library">×</button></div>
-      <p class="fine-print library-intro">Every listed card includes its effect and the number of copies in that character’s deck.</p>
-      <div class="library-decks" id="library-decks"></div>
     </dialog>
 
     <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
@@ -202,7 +221,12 @@
     <div class="target-popover hidden" id="target-popover" role="dialog" aria-modal="true">
       <div class="target-card"><p class="eyebrow">Choose a target</p><h2 id="target-title">Attack</h2><div id="target-options" class="target-options"></div><button class="button ghost" id="cancel-target" type="button">Cancel</button></div>
     </div>
-    <div class="winner-overlay hidden" id="winner-overlay"><div class="winner-card results-card"><p class="eyebrow">Battle complete</p><h2 id="winner-title">Victory!</h2><p id="winner-text"></p><section class="match-analytics" aria-label="Match analytics"><h3>Match analytics</h3><div id="winner-stats"></div></section><p class="fine-print hidden" id="ready-vote-status"></p><div class="post-match-actions"><button class="button primary" id="winner-restart" type="button">Play again</button><button class="button primary hidden" id="ready-next-button" type="button">Ready for next round</button><button class="button ghost hidden" id="leave-room-button" type="button">Leave room</button></div></div></div>
+    <dialog id="leave-confirm-dialog" class="leave-confirm-dialog" aria-labelledby="leave-confirm-title">
+      <div class="dialog-heading"><div><p class="eyebrow">Battle exit</p><h2 id="leave-confirm-title">Leave this battle?</h2></div><button class="icon-button" id="close-leave-confirm" type="button" aria-label="Cancel leaving">×</button></div>
+      <p id="leave-confirm-message">Your current battle will end and you’ll return to setup.</p>
+      <div class="leave-confirm-actions"><button class="button ghost" id="cancel-leave" type="button">Stay in battle</button><button class="button primary" id="confirm-leave" type="button">Leave battle</button></div>
+    </dialog>
+    <div class="winner-overlay hidden" id="winner-overlay"><div class="winner-card results-card"><p class="eyebrow">Battle complete</p><h2 id="winner-title">Victory!</h2><p id="winner-text"></p><section class="match-analytics" aria-label="Match analytics"><h3>Match analytics</h3><div id="winner-stats"></div></section><p class="fine-print hidden" id="ready-vote-status"></p><div class="post-match-actions"><button class="button primary" id="winner-restart" type="button">Rematch</button><button class="button primary hidden" id="ready-next-button" type="button">Ready for next round</button><button class="button ghost hidden" id="leave-room-button" type="button">Leave room</button></div></div></div>
     <dialog id="account-dialog">
       <div class="dialog-heading"><div><p class="eyebrow">Player account</p><h2 id="account-title">Create your account</h2></div><button class="icon-button" id="close-account" aria-label="Close account dialog">×</button></div>
       <p class="fine-print account-session-note">Only one device can be signed in at a time. Signing in here signs out the previous device.</p>

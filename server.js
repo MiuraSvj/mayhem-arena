@@ -48,11 +48,14 @@ function setSessionCookie(response, username, sessionId) {
   response.setHeader('Set-Cookie', `mayhem_session=${signSession(username, sessionId)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=1209600${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
 }
 function profileFor(user) {
-  if (!user.profile || typeof user.profile !== 'object') user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [] };
+  if (!user.profile || typeof user.profile !== 'object') user.profile = { matches: 0, wins: 0, characters: {}, matchIds: [], history: [], achievementIds: [] };
   user.profile.matches = Number.isFinite(user.profile.matches) ? user.profile.matches : 0;
   user.profile.wins = Number.isFinite(user.profile.wins) ? user.profile.wins : 0;
   if (!user.profile.characters || typeof user.profile.characters !== 'object') user.profile.characters = {};
   if (!Array.isArray(user.profile.matchIds)) user.profile.matchIds = [];
+  if (!Array.isArray(user.profile.history)) user.profile.history = [];
+  if (!Array.isArray(user.profile.achievementIds)) user.profile.achievementIds = [];
+  if (!user.profile.wonCharacters || typeof user.profile.wonCharacters !== 'object') user.profile.wonCharacters = {};
   return user.profile;
 }
 
@@ -69,15 +72,32 @@ app.post('/api/profile/match', (request, response) => {
   const list = users();
   const user = authenticatedUser(request, list);
   if (!user) return response.status(401).json({ error: 'Sign in to save match stats.' });
-  const { matchId, won, character } = request.body || {};
+  const { matchId, won, character, historyEntry } = request.body || {};
   if (typeof matchId !== 'string' || !/^[A-Za-z0-9-]{8,80}$/.test(matchId) || typeof won !== 'boolean' || typeof character !== 'string') return response.status(400).json({ error: 'Invalid match stats.' });
   const profile = profileFor(user);
   if (!profile.matchIds.includes(matchId)) {
     profile.matches++;
-    if (won) profile.wins++;
+    if (won) { profile.wins++; profile.wonCharacters[character]=(profile.wonCharacters[character] || 0)+1; }
     profile.characters[character] = (profile.characters[character] || 0) + 1;
     profile.matchIds.push(matchId);
     profile.matchIds = profile.matchIds.slice(-1000);
+    if (historyEntry && typeof historyEntry === 'object' && historyEntry.matchId === matchId && typeof historyEntry.playedAt === 'string') {
+      profile.history.unshift({
+        matchId,
+        playedAt: historyEntry.playedAt.slice(0, 32),
+        won,
+        mode: ['ai','online'].includes(historyEntry.mode) ? historyEntry.mode : 'ai',
+        character: String(character).slice(0, 32),
+        opponentName: typeof historyEntry.opponentName === 'string' ? historyEntry.opponentName.slice(0, 24) : '',
+        opponentCharacter: typeof historyEntry.opponentCharacter === 'string' ? historyEntry.opponentCharacter.slice(0, 32) : '',
+        opponentStyle: typeof historyEntry.opponentStyle === 'string' ? historyEntry.opponentStyle.slice(0, 24) : '',
+        difficulty: typeof historyEntry.difficulty === 'string' ? historyEntry.difficulty.slice(0, 16) : '',
+        hpRemaining: Number.isInteger(historyEntry.hpRemaining) ? Math.max(0, Math.min(10, historyEntry.hpRemaining)) : null
+      });
+      profile.history = profile.history.slice(0, 25);
+    }
+    const validAchievements=['first-win','clutch-win','legend-slayer','five-wins','all-heroes'];
+    if (Array.isArray(request.body?.achievementIds)) profile.achievementIds=[...new Set([...profile.achievementIds,...request.body.achievementIds.filter((id)=>validAchievements.includes(id))])];
     saveUsers(list);
   }
   response.json({ profile });
@@ -90,7 +110,7 @@ app.post('/api/auth/register', async (request, response) => {
   const list = users();
   if (list.some((user) => user.username.toLowerCase() === username.toLowerCase())) return response.status(409).json({ error: 'That username is already in use.' });
   const sessionId = newSessionId();
-  const user = { username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), activeSessionId: sessionId, profile: { matches: 0, wins: 0, characters: {}, matchIds: [] } };
+  const user = { username, passwordHash: await hashPassword(password), createdAt: new Date().toISOString(), activeSessionId: sessionId, profile: { matches: 0, wins: 0, characters: {}, matchIds: [], history: [], achievementIds: [], wonCharacters: {} } };
   list.push(user);
   saveUsers(list);
   setSessionCookie(response, username, sessionId);

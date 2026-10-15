@@ -438,13 +438,13 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
 }
 
 /* Present library entries as complete, browsable cards. */
-#card-library-dialog { max-height:calc(100dvh - 24px); overflow:auto; }
-#card-library-dialog .library-cards {
+#library-panel { max-height:calc(100dvh - 24px); overflow:auto; }
+#library-panel .library-cards {
   grid-template-columns:repeat(auto-fill,minmax(145px,1fr));
   align-items:stretch;
   gap:12px;
 }
-#card-library-dialog .library-card.card {
+#library-panel .library-card.card {
   width:100%;
   min-width:0;
   min-height:300px;
@@ -457,19 +457,19 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
   text-align:left;
   box-shadow:0 6px 0 #080706cc,0 12px 18px #0003;
 }
-#card-library-dialog .library-card.card > div { padding-right:0; }
-#card-library-dialog .library-card.card > .card-topline { justify-content:space-between; min-height:25px; padding:4px 6px; }
-#card-library-dialog .library-card.card > .card-art { display:grid; flex:0 0 78px; height:78px; margin:4px 6px; }
-#card-library-dialog .library-card.card > .card-nameplate { display:grid; min-height:38px; place-items:center; padding:4px; text-align:center; }
-#card-library-dialog .library-card.card .card-nameplate h3 { display:block; margin:0; font-size:.82rem; line-height:1.05; }
-#card-library-dialog .library-card.card .card-faction small { color:#fff4df; font-size:.4rem; }
-#card-library-dialog .library-card.card > .card-text-panel { display:block; flex:1; max-height:94px; overflow:auto; margin:3px 5px 27px; padding:4px 5px; }
-#card-library-dialog .library-card.card .card-effects { padding:0; }
-#card-library-dialog .library-card.card .card-effects span { min-height:15px; gap:3px; font-size:.48rem; line-height:1.1; }
-#card-library-dialog .library-card.card .card-effects b { width:12px; font-size:.62rem; }
-#card-library-dialog .library-card.card .card-power-label { font-size:.42rem; }
-#card-library-dialog .library-card.card > .card-footer { padding:4px 6px; font-size:.43rem; }
-#card-library-dialog .library-card.card .card-footer b { font-size:.42rem; }
+#library-panel .library-card.card > div { padding-right:0; }
+#library-panel .library-card.card > .card-topline { justify-content:space-between; min-height:25px; padding:4px 6px; }
+#library-panel .library-card.card > .card-art { display:grid; flex:0 0 78px; height:78px; margin:4px 6px; }
+#library-panel .library-card.card > .card-nameplate { display:grid; min-height:38px; place-items:center; padding:4px; text-align:center; }
+#library-panel .library-card.card .card-nameplate h3 { display:block; margin:0; font-size:.82rem; line-height:1.05; }
+#library-panel .library-card.card .card-faction small { color:#fff4df; font-size:.4rem; }
+#library-panel .library-card.card > .card-text-panel { display:block; flex:1; max-height:94px; overflow:auto; margin:3px 5px 27px; padding:4px 5px; }
+#library-panel .library-card.card .card-effects { padding:0; }
+#library-panel .library-card.card .card-effects span { min-height:15px; gap:3px; font-size:.48rem; line-height:1.1; }
+#library-panel .library-card.card .card-effects b { width:12px; font-size:.62rem; }
+#library-panel .library-card.card .card-power-label { font-size:.42rem; }
+#library-panel .library-card.card > .card-footer { padding:4px 6px; font-size:.43rem; }
+#library-panel .library-card.card .card-footer b { font-size:.42rem; }
 .leave-battle-button {
   flex:0 0 auto;
   margin-left:auto;
@@ -487,11 +487,11 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
 .resume-match p { margin:0; color:#9ec9d4; font-size:.76rem; }
 .resume-match .button { margin:0; }
 @media(max-width:700px) {
-  #card-library-dialog { padding:17px; }
-  #card-library-dialog .library-cards { grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:9px; }
-  #card-library-dialog .library-deck { padding:10px; }
-  #card-library-dialog .library-card.card { min-height:286px; }
-  #card-library-dialog .library-card.card > .card-art { flex-basis:68px; height:68px; }
+  #library-panel { padding:17px; }
+  #library-panel .library-cards { grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:9px; }
+  #library-panel .library-deck { padding:10px; }
+  #library-panel .library-card.card { min-height:286px; }
+  #library-panel .library-card.card > .card-art { flex-basis:68px; height:68px; }
   body:has(.battle:not(.hidden)) .status-strip #turn-status { max-width:27%; }
   body:has(.battle:not(.hidden)) .leave-battle-button { min-height:24px; padding:4px 6px; font-size:.52rem; }
   body:has(.battle:not(.hidden)) .pause-game-button { min-width:25px; min-height:24px; padding:4px 6px; font-size:.52rem; }
@@ -597,7 +597,7 @@ body:has(.battle:not(.hidden)) .card.played { animation-duration:.55s; }
   body:has(.battle:not(.hidden)) .topbar .eyebrow { font-size:.42rem; }
   body:has(.battle:not(.hidden)) .topbar-actions { width:auto; flex:1; flex-wrap:nowrap; justify-content:flex-end; gap:3px; }
   body:has(.battle:not(.hidden)) .topbar-actions #account-button,
-  body:has(.battle:not(.hidden)) .topbar-actions #card-library-button,
+  body:has(.battle:not(.hidden)) .topbar-actions #collection-button,
   body:has(.battle:not(.hidden)) .topbar-actions #rules-button { display:none!important; }
   body:has(.battle:not(.hidden)) .topbar-actions .button { flex:0 0 auto; padding:4px 6px; font-size:.55rem; }
   body:has(.battle:not(.hidden)) .status-strip { flex:0 0 auto; margin-top:4px; padding:4px 7px; gap:5px; font-size:.58rem; }
@@ -999,19 +999,22 @@ body:has(.battle:not(.hidden)) .battle-settings-button { display:inline-flex; al
   body:has(.battle:not(.hidden)) .table-area { width:100%; }
 }
 
-/* Recent played cards sit beside the felt as a glanceable match history. */
+/* Keep the played-card rail out of the table grid so it never narrows the felt. */
 body:has(.battle:not(.hidden)) .table-area {
-  grid-template-columns:clamp(52px,6vw,78px) minmax(0,1fr) minmax(94px,112px) clamp(52px,6vw,78px)!important;
+  grid-template-columns:clamp(52px,6vw,78px) minmax(0,1fr) clamp(52px,6vw,78px)!important;
   gap:clamp(5px,1.5vw,18px)!important;
 }
 .played-history {
-  position:relative;
-  z-index:1;
+  position:fixed;
+  top:86px;
+  right:12px;
+  z-index:8;
   display:grid;
   grid-template-rows:auto minmax(0,1fr);
-  align-self:stretch;
+  width:142px;
+  height:min(52vh,360px);
   min-width:0;
-  max-height:100%;
+  max-height:calc(100dvh - 100px);
   gap:5px;
   padding:7px 6px;
   border:1px solid #c0f5ff66;
@@ -1021,7 +1024,9 @@ body:has(.battle:not(.hidden)) .table-area {
   color:#eaffff;
   text-align:center;
 }
-.played-history>strong { color:#d8faff; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; }
+.played-history>summary { color:#d8faff; font-size:.62rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; }
+.played-history:not([open]) { width:auto; height:auto; }
+body:not(:has(.battle:not(.hidden))) .played-history { display:none; }
 .played-history-list { display:grid; grid-auto-rows:minmax(35px,1fr); align-content:start; gap:4px; min-height:0; overflow:auto; }
 .played-history-list>small { align-self:center; color:#b8e6ee; font-size:.57rem; line-height:1.25; }
 .played-history-card { display:grid; grid-template-columns:30px minmax(0,1fr); align-items:center; gap:5px; min-width:0; padding:3px; border:1px solid #d1fbff99; border-radius:6px; background:linear-gradient(145deg,#2b7790,#124860); box-shadow:0 2px 5px #00253888; text-align:left; }
@@ -1037,11 +1042,13 @@ body:has(.battle:not(.hidden)) .table-area {
 .played-history-details small { color:#c6edf4; font-size:.48rem; }
 @media(max-width:700px) {
   body:has(.battle:not(.hidden)) .table-area {
-    grid-template-columns:38px minmax(0,1fr) minmax(50px,60px) 38px!important;
+    grid-template-columns:38px minmax(0,1fr) 38px!important;
     gap:2px!important;
   }
-  .played-history { gap:3px; padding:4px 2px; border-radius:7px; }
-  .played-history>strong { font-size:.46rem; letter-spacing:.04em; }
+  .played-history { top:auto; right:8px; bottom:12px; width:min(164px,48vw); height:170px; max-height:55vh; gap:3px; padding:6px 5px; border-radius:9px; }
+  .played-history:not([open]) { width:auto; height:auto; padding:7px 9px; }
+  .played-history>summary { font-size:.5rem; letter-spacing:.04em; }
+  .played-history:not([open]) .played-history-list { display:none; }
   .played-history-list { grid-auto-rows:minmax(30px,1fr); gap:3px; }
   .played-history-list>small { font-size:.44rem; }
   .played-history-card { grid-template-columns:1fr; justify-items:center; gap:1px; padding:2px 1px; }
@@ -1051,9 +1058,9 @@ body:has(.battle:not(.hidden)) .table-area {
   .played-history-details small { display:none; }
 }
 @media(max-width:380px) {
-  body:has(.battle:not(.hidden)) .table-area { grid-template-columns:32px minmax(0,1fr) 46px 32px!important; }
+  body:has(.battle:not(.hidden)) .table-area { grid-template-columns:32px minmax(0,1fr) 32px!important; }
   .played-history-art { width:22px; height:25px; }
-  .played-history>strong { font-size:.4rem; }
+  .played-history>summary { font-size:.4rem; }
 }
 
 /* Keep the mobile battle controls and hand clear of Safari's moving bars. */
@@ -1143,8 +1150,8 @@ body:has(.battle:not(.hidden)) .table-area {
   body:has(.battle:not(.hidden)) .deck-zone { gap:2px; font-size:.48rem; }
   body:has(.battle:not(.hidden)) .played-history {
     min-height:0;
-    max-height:100%;
-    padding:4px 2px;
+    max-height:55vh;
+    padding:6px 5px;
   }
   body:has(.battle:not(.hidden)) .table-center { width:100%; gap:5px; }
   body:has(.battle:not(.hidden)) .battle-message {
@@ -1155,3 +1162,5 @@ body:has(.battle:not(.hidden)) .table-area {
     overflow-wrap:anywhere;
   }
 }
+
+body:has(.battle:not(.hidden)) #collection-button{display:none!important}
